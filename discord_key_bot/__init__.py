@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import discord
 from discord.ext import commands
 
-from .db import Session
+from .db import Session, func
 from .db.models import Game, Key, Member, Guild
 from .keyparse import parse_key, keyspace, parse_name
 from .colours import Colours
@@ -58,6 +58,28 @@ def find_games(session, search_args, guild_id, limit=15, offset=None):
     return games, query
 
 
+def find_games_by_platform(session, platform, guild_id, limit=15, offset=None):
+    query = (
+        session.query(Game.pretty_name, func.count(Game.pretty_name).label('count'))
+        .join(Key)
+        .filter(
+            Key.creator_id.in_(
+                session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id)
+            )
+        )
+        .filter(Key.platform == platform)
+        .group_by(Game.pretty_name)
+        .order_by(Game.pretty_name.asc())
+    )
+
+    games = {}
+
+    for g in query.from_self().offset(offset).limit(limit).all():
+        games[g.pretty_name] = g.count
+
+    return games, query
+
+
 class GuildCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -76,6 +98,41 @@ class GuildCommands(commands.Cog):
 
         for g, platforms in games.items():
             value = "\n".join(f"{p.title()}: {len(c)}" for p, c in platforms.items())
+            msg.add_field(name=g, value=value, inline=True)
+
+        await ctx.send(embed=msg)
+
+    @commands.command()
+    async def platform(self, ctx, platform, page=1):
+        """Searches available games by platform"""
+
+        if platform not in keyspace.keys():
+            await ctx.send(
+                embed=embed(
+                    f'"{platform}" is not valid platform',
+                    colour=Colours.RED,
+                    title="Search failed",
+                )
+            )
+            return
+        
+        msg = embed("Top 15 search results...", title=f"Games available for {platform}")
+
+        session = Session()
+
+        per_page = 5
+        offset = (page - 1) * per_page
+
+        games, query = find_games_by_platform(session, platform, ctx.guild.id, per_page, offset)
+
+        first = offset + 1
+        total = query.count()
+        last = min(page * per_page, total)
+
+        msg = embed(f"Showing {first} to {last} of {total}", title="Browse Games")
+
+        for g, count in games.items():
+            value = f"Keys available: {count}"
             msg.add_field(name=g, value=value, inline=True)
 
         await ctx.send(embed=msg)
