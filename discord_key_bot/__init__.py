@@ -401,7 +401,14 @@ class DirectCommands(commands.Cog):
             )
         )
 
-        if query.count() > 1:
+        games = defaultdict(lambda: defaultdict(list))
+
+        for g in query.from_self().all():
+            games[g.pretty_name] = {
+                k: list(v) for k, v in groupby(g.keys, lambda x: x.platform)
+            }
+
+        if len(games.keys()) > 1:
             msg = embed(
                 "Please limit your search",
                 title="Too many games found",
@@ -414,16 +421,13 @@ class DirectCommands(commands.Cog):
             await ctx.send(embed=msg)
             return
 
-        if not query.count():
+        if not games:
             await ctx.send(embed=embed("Game not found"))
             return
 
-        game = query.first()
-        key = (
-            session.query(Key)
-            .filter(Key.game == game, Key.creator_id == member.id)
-            .first()
-        )
+        game_name = list(games.keys())[0]
+        key = games[game_name][platform][0]
+        game = key.game
 
         msg = embed(
             f"Please find your key below", title="Key removed!", colour=Colours.GREEN
@@ -436,9 +440,7 @@ class DirectCommands(commands.Cog):
 
         if not game.keys:
             session.delete(game)
-
-        if key.creator_id != member.id:
-            member.last_claim = datetime.utcnow()
+        
         session.commit()
 
         await ctx.author.send(embed=msg)
