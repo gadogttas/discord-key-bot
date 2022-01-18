@@ -16,6 +16,23 @@ bot = commands.Bot(command_prefix=os.environ.get("BANG", "!"))
 WAIT_TIME = timedelta(seconds=int(os.environ.get("WAIT_TIME", 86400)))
 
 
+async def _validate_search_args(search_args, ctx):
+    if not search_args:
+        await ctx.send(embed=embed("No game name provided!", Colours.RED))
+        return False
+    
+    if len(search_args) < 3:
+        await ctx.send(
+            embed=embed(
+                "Game name must be at least 3 characters.",
+                Colours.RED
+            )
+        )
+        return False
+
+    return True
+
+
 def claimable(timestamp):
     if timestamp:
         return (
@@ -94,6 +111,9 @@ class GuildCommands(commands.Cog):
 
         search_args = parse_name("_".join(game_name))
 
+        if not await _validate_search_args(search_args, ctx):
+            return
+
         games, _ = find_games(session, search_args, ctx.guild.id)
 
         for g, platforms in games.items():
@@ -115,12 +135,10 @@ class GuildCommands(commands.Cog):
                 )
             )
             return
-        
-        msg = embed("Top 15 search results...", title=f"Games available for {platform}")
 
         session = Session()
 
-        per_page = 5
+        per_page = 20
         offset = (page - 1) * per_page
 
         games, query = find_games_by_platform(session, platform, ctx.guild.id, per_page, offset)
@@ -129,7 +147,7 @@ class GuildCommands(commands.Cog):
         total = query.count()
         last = min(page * per_page, total)
 
-        msg = embed(f"Showing {first} to {last} of {total}", title="Browse Games")
+        msg = embed(f"Showing {first} to {last} of {total}", title="Browse Games available for {platform}")
 
         for g, count in games.items():
             value = f"Keys available: {count}"
@@ -260,8 +278,7 @@ class GuildCommands(commands.Cog):
 
         search_args = parse_name("_".join(game_name))
 
-        if not search_args:
-            await ctx.send(embed=embed("No game search provided!"))
+        if not await _validate_search_args(search_args, ctx):
             return
 
         games, _ = find_games(session, search_args, ctx.guild.id, 3)
@@ -322,7 +339,12 @@ class DirectCommands(commands.Cog):
         """Add a key or url"""
         session = Session()
 
-        game = Game.get(session, " ".join(game_name))
+        pretty_name = " ".join(game_name)
+
+        if not await _validate_search_args(pretty_name, ctx):
+            return
+
+        game = Game.get(session, pretty_name)
 
         platform, key = parse_key(key)
 
@@ -383,8 +405,7 @@ class DirectCommands(commands.Cog):
 
         search_args = parse_name("_".join(game_name))
 
-        if not search_args:
-            await ctx.send(embed=embed("No game search provided!"))
+        if not await _validate_search_args(search_args, ctx):
             return
 
         session = Session()
