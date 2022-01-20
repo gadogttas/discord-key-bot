@@ -84,7 +84,7 @@ def find_games_by_platform(session, platform, guild_id, limit=15, offset=None):
                 session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id)
             )
         )
-        .filter(Key.platform == platform)
+        .filter(Key.platform == platform.lower())
         .group_by(Game.pretty_name)
         .order_by(Game.pretty_name.asc())
     )
@@ -126,7 +126,7 @@ class GuildCommands(commands.Cog):
     async def platform(self, ctx, platform, page=1):
         """Searches available games by platform"""
 
-        if platform not in keyspace.keys():
+        if platform.lower() not in keyspace.keys():
             await ctx.send(
                 embed=embed(
                     f'"{platform}" is not valid platform',
@@ -147,7 +147,7 @@ class GuildCommands(commands.Cog):
         total = query.count()
         last = min(page * per_page, total)
 
-        msg = embed(f"Showing {first} to {last} of {total}", title="Browse Games available for {platform}")
+        msg = embed(f"Showing {first} to {last} of {total}", title=f"Browse Games available for {platform}")
 
         for g, count in games.items():
             value = f"Keys available: {count}"

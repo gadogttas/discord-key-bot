@@ -17,7 +17,6 @@ keyspace = {
         r"^[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}$",
         r"^[a-z,A-Z,0-9]{3}-[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}$",
     ],
-    "url": [r"^http"],
 }
 
 _compiled = {k: [re.compile(r) for r in v] for k, v in keyspace.items()}
