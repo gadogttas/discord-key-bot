@@ -336,7 +336,7 @@ class DirectCommands(commands.Cog):
 
     @commands.command()
     async def add(self, ctx, key, *game_name):
-        """Add a key or url"""
+        """Add a key"""
         session = Session()
 
         pretty_name = " ".join(game_name)
@@ -391,7 +391,7 @@ class DirectCommands(commands.Cog):
 
     @commands.command()
     async def remove(self, ctx, platform, *game_name):
-        """Remove a key or url and send to you in a PM"""
+        """Remove a key and send to you in a PM"""
 
         if platform not in keyspace.keys():
             await ctx.send(
