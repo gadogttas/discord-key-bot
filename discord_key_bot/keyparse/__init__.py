@@ -11,7 +11,7 @@ keyspace = {
     ],
     "playstation": [r"^[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}$"],
     "origin": [
-        r"^[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}$"
+        r"^[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}$"
     ],
     "uplay": [
         r"^[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}-[a-z,A-Z,0-9]{4}$",
@@ -25,7 +25,7 @@ examples = {
     "GOG": ["AAAAA-BBBBB-CCCCC-DDDDD", "ABCDEABCDEABCDEABC (18 chars)"],
     "Steam": ["AAAAA-BBBBB-CCCCC", "AAAAA-BBBBB-CCCCC-DDDDD-EEEEE"],
     "Playstation": ["AAAA-BBBB-CCCC"],
-    "Origin": ["AAAA-BBBB-CCCC-DDDD"],
+    "Origin": ["AAAA-BBBB-CCCC-DDDD-EEEE"],
     "Switch": ["ABCDABCDABCDABCD (16 chars)"],
     "Xbox": ["ABCDEABCDEABCDEABCDEABCDE (25 chars)"],
 }
