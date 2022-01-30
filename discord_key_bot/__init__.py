@@ -8,12 +8,23 @@ from discord.ext import commands
 
 from .db import Session, func
 from .db.models import Game, Key, Member, Guild
-from .keyparse import parse_key, keyspace, parse_name
+from .keyparse import parse_key, keyspace, parse_name, examples
 from .colours import Colours
 
-bot = commands.Bot(command_prefix=os.environ.get("BANG", "!"))
+COMMAND_PREFIX = os.environ.get("BANG", "!")
+
+bot = commands.Bot(command_prefix=COMMAND_PREFIX)
 
 WAIT_TIME = timedelta(seconds=int(os.environ.get("WAIT_TIME", 86400)))
+BOT_CHANNEL_NAME = os.environ.get("BOT_CHANNEL_NAME")
+
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        await ctx.send(f"**Invalid command. Try using** `{COMMAND_PREFIX}help` **to figure out commands.**")
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f"**Please pass in all requirements. Use** `{COMMAND_PREFIX}help {ctx.invoked_with}` **to see requirements.**")
 
 
 async def _validate_search_args(search_args, ctx):
@@ -59,7 +70,7 @@ def find_games(session, search_args, guild_id, limit=15, offset=None):
             )
         )
         .filter(Game.name.like(f"%{search_args}%"))
-        .order_by(Game.pretty_name.asc())
+        .order_by(func.lower(Game.pretty_name).asc())
     )
 
     if offset is None:
@@ -71,6 +82,28 @@ def find_games(session, search_args, guild_id, limit=15, offset=None):
             }
     else:
         games = None
+
+    return games, query
+    
+
+def get_random_games(session, guild_id, limit=15):
+    query = (
+        session.query(Game)
+        .join(Key)
+        .filter(
+            Key.creator_id.in_(
+                session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id)
+            )
+        )
+        .order_by(func.random())
+    )
+
+    games = defaultdict(lambda: defaultdict(list))
+
+    for g in query.from_self().limit(limit).all():
+        games[g.pretty_name] = {
+            k: list(v) for k, v in groupby(g.keys, lambda x: x.platform)
+        }
 
     return games, query
 
@@ -86,7 +119,7 @@ def find_games_by_platform(session, platform, guild_id, limit=15, offset=None):
         )
         .filter(Key.platform == platform.lower())
         .group_by(Game.pretty_name)
-        .order_by(Game.pretty_name.asc())
+        .order_by(func.lower(Game.pretty_name).asc())
     )
 
     games = {}
@@ -100,6 +133,10 @@ def find_games_by_platform(session, platform, guild_id, limit=15, offset=None):
 class GuildCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    async def cog_before_invoke(self, ctx):
+        if (BOT_CHANNEL_NAME and str(ctx.channel) != BOT_CHANNEL_NAME):
+            raise commands.CommandError('wrong channel')
 
     @commands.command()
     async def search(self, ctx, *game_name):
@@ -123,10 +160,33 @@ class GuildCommands(commands.Cog):
         await ctx.send(embed=msg)
 
     @commands.command()
+    async def platforms(self, ctx):
+        """Shows valid platforms"""
+        
+        msg = embed(f"Showing valid platforms and example key formats", title="Platforms")
+        
+        for p, ex in examples.items():
+            formats = '\n'.join(ex)
+            value = f"Example format(s):\n{formats}"
+            msg.add_field(name=p, value=value, inline=False)
+            
+        await ctx.send(embed=msg)
+
+    @commands.command()
     async def platform(self, ctx, platform, page=1):
         """Searches available games by platform"""
 
-        if platform.lower() not in keyspace.keys():
+        if not ctx.guild:
+            await ctx.send(
+                embed=embed(
+                    f"This command should be sent in a guild. To see your keys use `{COMMAND_PREFIX}mykeys`"
+                )
+            )
+            return
+
+        platform_lower = platform.lower()
+
+        if platform_lower not in keyspace.keys():
             await ctx.send(
                 embed=embed(
                     f'"{platform}" is not valid platform',
@@ -141,7 +201,7 @@ class GuildCommands(commands.Cog):
         per_page = 20
         offset = (page - 1) * per_page
 
-        games, query = find_games_by_platform(session, platform, ctx.guild.id, per_page, offset)
+        games, query = find_games_by_platform(session, platform_lower, ctx.guild.id, per_page, offset)
 
         first = offset + 1
         total = query.count()
@@ -162,9 +222,10 @@ class GuildCommands(commands.Cog):
         if not ctx.guild:
             await ctx.send(
                 embed=embed(
-                    f"This command should be sent in a guild. To see your keys use `!mykeys`"
+                    f"This command should be sent in a guild. To see your keys use `{COMMAND_PREFIX}mykeys`"
                 )
             )
+            return
 
         session = Session()
 
@@ -185,6 +246,33 @@ class GuildCommands(commands.Cog):
             )
 
         await ctx.send(embed=msg)
+        
+    @commands.command()
+    async def random(self, ctx):
+        """Display 20 random available games"""
+
+        if not ctx.guild:
+            await ctx.send(
+                embed=embed(
+                    f"This command should be sent in a guild. To see your keys use `{COMMAND_PREFIX}mykeys`"
+                )
+            )
+            return
+
+        session = Session()
+
+        per_page = 20
+
+        games, query = get_random_games(session, ctx.guild.id, per_page)
+
+        total = query.count()
+
+        msg = embed(f"Showing {min(20, total)} random games of {total} total", title="Random Games")
+
+        for g, platforms in games.items():
+            msg.add_field(name=g, value=", ".join(platforms.keys()))
+
+        await ctx.send(embed=msg)
 
     @commands.command()
     async def share(self, ctx):
@@ -203,10 +291,12 @@ class GuildCommands(commands.Cog):
                 )
             else:
                 member.guilds.append(ctx.guild.id)
+                _, query = get_random_games(session, ctx.guild.id, 1)
+                game_count = query.count()
                 session.commit()
                 await ctx.send(
                     embed=embed(
-                        f"Thanks {ctx.author.name}! Your keys are now available on {ctx.guild.name}",
+                        f"Thanks {ctx.author.name}! Your keys are now available on {ctx.guild.name}. There are now {game_count} games available.",
                         colour=Colours.GREEN,
                     )
                 )
@@ -234,10 +324,12 @@ class GuildCommands(commands.Cog):
                 )
             else:
                 member.guilds.remove(ctx.guild.id)
+                _, query = get_random_games(session, ctx.guild.id, 1)
+                game_count = query.count()
                 session.commit()
                 await ctx.send(
                     embed=embed(
-                        f"Thanks {ctx.author.name}! You have removed {ctx.guild.name} from sharing",
+                        f"Thanks {ctx.author.name}! You have removed {ctx.guild.name} from sharing. There are now {game_count} games available.",
                         colour=Colours.GREEN,
                     )
                 )
@@ -250,7 +342,7 @@ class GuildCommands(commands.Cog):
             )
 
     @commands.command()
-    async def claim(self, ctx, platform=None, *game_name):
+    async def claim(self, ctx, platform, *game_name):
         """Claims a game from available keys"""
         session = Session()
 
@@ -266,7 +358,7 @@ class GuildCommands(commands.Cog):
             )
             return
 
-        if platform not in keyspace.keys():
+        if platform.lower() not in keyspace.keys():
             await ctx.send(
                 embed=embed(
                     f'"{platform}" is not valid platform',
