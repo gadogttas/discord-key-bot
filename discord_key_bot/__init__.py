@@ -21,6 +21,8 @@ BOT_CHANNEL_NAME = os.environ.get("BOT_CHANNEL_NAME")
 
 @bot.event
 async def on_command_error(ctx, error):
+    if (BOT_CHANNEL_NAME and str(ctx.channel) != BOT_CHANNEL_NAME):
+        return # We don't care about the wrong commands in other channels
     if isinstance(error, commands.CommandNotFound):
         await ctx.send(f"**Invalid command. Try using** `{COMMAND_PREFIX}help` **to figure out commands.**")
     if isinstance(error, commands.MissingRequiredArgument):
