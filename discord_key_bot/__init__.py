@@ -16,12 +16,12 @@ COMMAND_PREFIX = os.environ.get("BANG", "!")
 bot = commands.Bot(command_prefix=COMMAND_PREFIX)
 
 WAIT_TIME = timedelta(seconds=int(os.environ.get("WAIT_TIME", 86400)))
-BOT_CHANNEL_NAME = os.environ.get("BOT_CHANNEL_NAME")
+BOT_CHANNEL_ID = os.environ.get("BOT_CHANNEL_ID")
 
 
 @bot.event
 async def on_command_error(ctx, error):
-    if (BOT_CHANNEL_NAME and str(ctx.channel) != BOT_CHANNEL_NAME):
+    if (BOT_CHANNEL_ID and str(ctx.channel.id) != BOT_CHANNEL_ID):
         return # We don't care about the wrong commands in other channels
     if isinstance(error, commands.CommandNotFound):
         await ctx.send(f"**Invalid command. Try using** `{COMMAND_PREFIX}help` **to figure out commands.**")
@@ -137,7 +137,7 @@ class GuildCommands(commands.Cog):
         self.bot = bot
 
     async def cog_before_invoke(self, ctx):
-        if (BOT_CHANNEL_NAME and str(ctx.channel) != BOT_CHANNEL_NAME):
+        if (BOT_CHANNEL_ID and str(ctx.channel.id) != BOT_CHANNEL_ID):
             raise commands.CommandError('wrong channel')
 
     @commands.command()
