@@ -33,15 +33,6 @@ async def _validate_search_args(search_args, ctx):
     if not search_args:
         await ctx.send(embed=embed("No game name provided!", Colours.RED))
         return False
-    
-    if len(search_args) < 3:
-        await ctx.send(
-            embed=embed(
-                "Game name must be at least 3 characters.",
-                Colours.RED
-            )
-        )
-        return False
 
     return True
 
@@ -60,6 +51,25 @@ def embed(text, colour=Colours.DEFAULT, title="Keybot"):
     msg = discord.Embed(title=title, type="rich", description=text, color=colour)
 
     return msg
+
+
+def get_game_keys(session, game_name, guild_id):
+    game = (
+        session.query(Game)
+        .join(Key)
+        .filter(
+            Key.creator_id.in_(
+                session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id)
+            )
+        )
+        .filter(Game.name == game_name)
+        .first()
+    )
+
+    if game:
+        return {
+            k: list(v) for k, v in groupby(game.keys, lambda x: x.platform)
+        }
 
 
 def find_games(session, search_args, guild_id, limit=15, offset=None):
@@ -375,27 +385,13 @@ class GuildCommands(commands.Cog):
         if not await _validate_search_args(search_args, ctx):
             return
 
-        games, _ = find_games(session, search_args, ctx.guild.id, 3)
+        game = get_game_keys(session, search_args, ctx.guild.id)
 
-        if len(games.keys()) > 1:
-            msg = embed(
-                "Please limit your search",
-                title="Too many games found",
-                colour=Colours.RED,
-            )
-
-            for g, platforms in games.items():
-                msg.add_field(name=g, value=", ".join(platforms.keys()))
-
-            await ctx.send(embed=msg)
-            return
-
-        if not games:
+        if not game:
             await ctx.send(embed=embed("Game not found"))
             return
 
-        game_name = list(games.keys())[0]
-        key = games[game_name][platform][0]
+        key = game[platform][0]
         game = key.game
 
         msg = embed(
@@ -487,7 +483,9 @@ class DirectCommands(commands.Cog):
     async def remove(self, ctx, platform, *game_name):
         """Remove a key and send to you in a PM"""
 
-        if platform not in keyspace.keys():
+        platform_lower = platform.lower()
+
+        if platform_lower not in keyspace.keys():
             await ctx.send(
                 embed=embed(
                     f'"{platform}" is not valid platform',
@@ -506,42 +504,27 @@ class DirectCommands(commands.Cog):
 
         member = Member.get(session, ctx.author.id, ctx.author.name)
 
-        query = (
+        game = (
             session.query(Game)
             .join(Key)
             .filter(
-                Game.pretty_name.like(f"%{search_args}%"),
-                Key.platform == platform,
+                Game.name == search_args,
+                Key.platform == platform_lower,
                 Key.creator_id == member.id,
             )
+            .first()
         )
 
-        games = defaultdict(lambda: defaultdict(list))
-
-        for g in query.from_self().all():
-            games[g.pretty_name] = {
-                k: list(v) for k, v in groupby(g.keys, lambda x: x.platform)
+        if game:
+            game = {
+                k: list(v) for k, v in groupby(game.keys, lambda x: x.platform)
             }
 
-        if len(games.keys()) > 1:
-            msg = embed(
-                "Please limit your search",
-                title="Too many games found",
-                colour=Colours.RED,
-            )
-
-            for g, platforms in games.items():
-                msg.add_field(name=g, value=", ".join(platforms.keys()))
-
-            await ctx.send(embed=msg)
-            return
-
-        if not games:
+        if not game:
             await ctx.send(embed=embed("Game not found"))
             return
 
-        game_name = list(games.keys())[0]
-        key = games[game_name][platform][0]
+        key = game[platform_lower][0]
         game = key.game
 
         msg = embed(
