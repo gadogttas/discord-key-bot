@@ -370,7 +370,9 @@ class GuildCommands(commands.Cog):
             )
             return
 
-        if platform.lower() not in keyspace.keys():
+        platform_lower = platform.lower()
+
+        if platform_lower not in keyspace.keys():
             await ctx.send(
                 embed=embed(
                     f'"{platform}" is not valid platform',
@@ -391,7 +393,7 @@ class GuildCommands(commands.Cog):
             await ctx.send(embed=embed("Game not found"))
             return
 
-        key = game[platform][0]
+        key = game[platform_lower][0]
         game = key.game
 
         msg = embed(
