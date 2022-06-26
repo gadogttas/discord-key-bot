@@ -415,7 +415,7 @@ class GuildCommands(commands.Cog):
         await ctx.author.send(embed=msg)
         await ctx.send(
             embed=embed(
-                f'"{game.pretty_name}" claimed by {ctx.user.name}. Check your PMs for more info. Enjoy!'
+                f'"{game.pretty_name}" claimed by {ctx.author.name}. Check your PMs for more info. Enjoy!'
             )
         )
 
