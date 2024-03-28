@@ -1,12 +1,17 @@
 from datetime import datetime
 
+from discord import Embed
 from discord.ext import commands
+from sqlalchemy.orm import Session
+from typing import List, Dict, Tuple
 
 from discord_key_bot.common import util
 from discord_key_bot.db import Session, search
-from discord_key_bot.db.models import Member
-from discord_key_bot.keyparse import keyspace, parse_name, examples
+from discord_key_bot.db.models import Member, Key, Game
+from discord_key_bot.platform import all_platforms, pretty_platform, pretty_platforms
+from discord_key_bot.common.util import get_search_arguments
 from discord_key_bot.common.colours import Colours
+
 
 class GuildCommands(commands.Cog):
     def __init__(self, bot, bot_channel_id, wait_time):
@@ -14,46 +19,50 @@ class GuildCommands(commands.Cog):
         self.bot_channel_id = bot_channel_id
         self.wait_time = wait_time
 
-    async def cog_before_invoke(self, ctx):
-        if (self.bot_channel_id and str(ctx.channel.id) != self.bot_channel_id):
-            raise commands.CommandError('wrong channel')
+    async def cog_before_invoke(self, ctx: commands.Context) -> None:
+        if self.bot_channel_id and str(ctx.channel.id) != self.bot_channel_id:
+            raise commands.CommandError("wrong channel")
 
     @commands.command()
-    async def search(self, ctx, *game_name):
+    async def search(self, ctx: commands.Context, *game_name: str):
         """Searches available games"""
 
         msg = util.embed("Top 15 search results...", title="Search Results")
 
-        session = Session()
+        session: Session = Session()
 
-        search_args = parse_name("_".join(game_name))
+        search_args = get_search_arguments("_".join(game_name))
 
-        if not await util.validate_search_args(search_args, ctx):
+        if not search_args:
+            await util.send_error_message(ctx, "No game name provided!")
             return
 
+        games: Dict[Game, Dict[str, List[str]]]
         games, _ = search.find_games(session, search_args, ctx.guild.id)
 
         for g, platforms in games.items():
             value = "\n".join(f"{p.title()}: {len(c)}" for p, c in platforms.items())
-            msg.add_field(name=g, value=value, inline=True)
+            msg.add_field(name=g.pretty_name, value=value, inline=True)
 
         await ctx.send(embed=msg)
 
     @commands.command()
-    async def platforms(self, ctx):
+    async def platforms(self, ctx: commands.Context):
         """Shows valid platforms"""
 
-        msg = util.embed(f"Showing valid platforms and example key formats", title="Platforms")
+        msg: Embed = util.embed(
+            f"Showing valid platforms and example key formats", title="Platforms"
+        )
 
-        for p, ex in examples.items():
-            formats = '\n'.join(ex)
+        for platform in all_platforms.values():
+            formats = "\n".join(platform.example_keys)
             value = f"Example format(s):\n{formats}"
-            msg.add_field(name=p, value=value, inline=False)
+            msg.add_field(name=platform.name, value=value, inline=False)
 
         await ctx.send(embed=msg)
 
     @commands.command()
-    async def platform(self, ctx, platform, page=1):
+    async def platform(self, ctx: commands.Context, platform: str, page: int = 1):
         """Searches available games by platform"""
 
         if not ctx.guild:
@@ -66,7 +75,7 @@ class GuildCommands(commands.Cog):
 
         platform_lower = platform.lower()
 
-        if platform_lower not in keyspace.keys():
+        if platform_lower not in all_platforms.keys():
             await ctx.send(
                 embed=util.embed(
                     f'"{platform}" is not valid platform',
@@ -76,27 +85,33 @@ class GuildCommands(commands.Cog):
             )
             return
 
-        session = Session()
+        session: Session = Session()
 
         per_page = 20
         offset = (page - 1) * per_page
 
-        games, query = search.find_games_by_platform(session, platform_lower, ctx.guild.id, per_page, offset)
+        games: Dict[str, int]
+        total: int
+        games, total = search.game_count_by_platform(
+            session, platform_lower, ctx.guild.id, per_page, offset
+        )
 
         first = offset + 1
-        total = query.count()
         last = min(page * per_page, total)
 
-        msg = util.embed(f"Showing {first} to {last} of {total}", title=f"Browse Games available for {platform}")
+        msg = util.embed(
+            f"Showing {first} to {last} of {total}",
+            title=f"Browse Games available for {platform}",
+        )
 
-        for g, count in games.items():
+        for game, count in games.items():
             value = f"Keys available: {count}"
-            msg.add_field(name=g, value=value, inline=True)
+            msg.add_field(name=game, value=value, inline=True)
 
         await ctx.send(embed=msg)
 
     @commands.command()
-    async def browse(self, ctx, page=1):
+    async def browse(self, ctx: commands.Context, page: int = 1):
         """Browse through available games"""
 
         if not ctx.guild:
@@ -107,28 +122,32 @@ class GuildCommands(commands.Cog):
             )
             return
 
-        session = Session()
+        session: Session = Session()
 
-        per_page = 20
-        offset = (page - 1) * per_page
+        per_page: int = 20
+        offset: int = (page - 1) * per_page
 
-        games, query = search.find_games(session, "", ctx.guild.id, per_page, offset)
+        games: Dict[Game, Dict[str, List[str]]]
+        total: int
+        games, total = search.find_games(session, "", ctx.guild.id, per_page, offset)
 
-        first = offset + 1
-        total = query.count()
-        last = min(page * per_page, total)
+        first: int = offset + 1
+        last: int = min(page * per_page, total)
 
-        msg = util.embed(f"Showing {first} to {last} of {total}", title="Browse Games")
+        msg: Embed = util.embed(
+            f"Showing {first} to {last} of {total}", title="Browse Games"
+        )
 
-        for g in query.from_self().limit(per_page).offset(offset).all():
+        for game in games:
             msg.add_field(
-                name=g.pretty_name, value=", ".join(k.platform.title() for k in g.keys)
+                name=game.pretty_name,
+                value=pretty_platforms([key.platform for key in game.keys]),
             )
 
         await ctx.send(embed=msg)
 
     @commands.command()
-    async def random(self, ctx):
+    async def random(self, ctx: commands.Context):
         """Display 20 random available games"""
 
         if not ctx.guild:
@@ -139,27 +158,30 @@ class GuildCommands(commands.Cog):
             )
             return
 
-        session = Session()
+        session: Session = Session()
 
-        per_page = 20
+        per_page: int = 20
 
-        games, query = search.get_random_games(session, ctx.guild.id, per_page)
+        games: Dict[str, Dict[str, List[str]]]
+        total: int
+        games, total = search.get_random_games(session, ctx.guild.id, per_page)
 
-        total = query.count()
+        msg = util.embed(
+            f"Showing {min(20, total)} random games of {total} total",
+            title="Random Games",
+        )
 
-        msg = util.embed(f"Showing {min(20, total)} random games of {total} total", title="Random Games")
-
-        for g, platforms in games.items():
-            msg.add_field(name=g, value=", ".join(platforms.keys()))
+        for game_name, game_platforms in games.items():
+            msg.add_field(name=game_name, value=pretty_platforms(game_platforms.keys()))
 
         await ctx.send(embed=msg)
 
     @commands.command()
-    async def share(self, ctx):
-        """Add this guild the guilds you share keys with"""
-        session = Session()
+    async def share(self, ctx: commands.Context):
+        """Share your keys with this guild"""
+        session: Session = Session()
 
-        member = Member.get(session, ctx.author.id, ctx.author.name)
+        member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
         if ctx.guild:
             if ctx.guild.id in member.guilds:
@@ -171,8 +193,8 @@ class GuildCommands(commands.Cog):
                 )
             else:
                 member.guilds.append(ctx.guild.id)
-                _, query = search.get_random_games(session, ctx.guild.id, 1)
-                game_count = query.count()
+                game_count: int
+                _, game_count = search.get_random_games(session, ctx.guild.id, 1)
                 session.commit()
                 await ctx.send(
                     embed=util.embed(
@@ -189,10 +211,10 @@ class GuildCommands(commands.Cog):
             )
 
     @commands.command()
-    async def unshare(self, ctx):
+    async def unshare(self, ctx: commands.Context):
         """Remove this guild from the guilds you share keys with"""
-        session = Session()
-        member = Member.get(session, ctx.author.id, ctx.author.name)
+        session: Session = Session()
+        member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
         if ctx.guild:
             if ctx.guild.id not in member.guilds:
@@ -204,8 +226,8 @@ class GuildCommands(commands.Cog):
                 )
             else:
                 member.guilds.remove(ctx.guild.id)
-                _, query = search.get_random_games(session, ctx.guild.id, 1)
-                game_count = query.count()
+                game_count: int
+                _, game_count = search.get_random_games(session, ctx.guild.id, 1)
                 session.commit()
                 await ctx.send(
                     embed=util.embed(
@@ -222,12 +244,12 @@ class GuildCommands(commands.Cog):
             )
 
     @commands.command()
-    async def claim(self, ctx, platform, *game_name):
+    async def claim(self, ctx: commands.Context, platform: str, *game_name: str):
         """Claims a game from available keys"""
-        session = Session()
+        session: Session = Session()
 
-        member = Member.get(session, ctx.author.id, ctx.author.name)
-        ready, timeleft = self.claimable(member.last_claim)
+        member: Member = Member.get(session, ctx.author.id, ctx.author.name)
+        ready, timeleft = self._is_cooldown_elapsed(member.last_claim)
         if not ready:
             await ctx.send(
                 embed=util.embed(
@@ -238,9 +260,9 @@ class GuildCommands(commands.Cog):
             )
             return
 
-        platform_lower = platform.lower()
+        platform_lower: str = platform.lower()
 
-        if platform_lower not in keyspace.keys():
+        if platform_lower not in all_platforms.keys():
             await ctx.send(
                 embed=util.embed(
                     f'"{platform}" is not valid platform',
@@ -250,21 +272,24 @@ class GuildCommands(commands.Cog):
             )
             return
 
-        search_args = parse_name("_".join(game_name))
+        search_args: str = get_search_arguments("_".join(game_name))
 
-        if not await util.validate_search_args(search_args, ctx):
+        if not search_args:
+            await util.send_error_message(ctx, "No game name provided!")
             return
 
-        game = search.get_game_keys(session, search_args, ctx.guild.id)
+        game_keys: Dict[str, List[Key]] = search.get_game_keys(
+            session, search_args, ctx.guild.id
+        )
 
-        if not game:
+        if not game_keys:
             await ctx.send(embed=util.embed("Game not found"))
             return
 
-        key = game[platform_lower][0]
-        game = key.game
+        key: Key = game_keys[platform_lower][0]
+        game: Game = key.game
 
-        msg = util.embed(
+        msg: Embed = util.embed(
             f"Please find your key below", title="Game claimed!", colour=Colours.GREEN
         )
 
@@ -287,11 +312,11 @@ class GuildCommands(commands.Cog):
             )
         )
 
-    def claimable(self, timestamp):
+    def _is_cooldown_elapsed(self, timestamp) -> Tuple[bool, int]:
         if timestamp:
-            return (
-                datetime.utcnow() - timestamp > self.wait_time,
-                timestamp + self.wait_time - datetime.utcnow(),
-            )
-        else:
-            return True, None
+            cooldown_elapsed: bool = datetime.utcnow() - timestamp > self.wait_time
+            time_remaining: int = timestamp + self.wait_time - datetime.utcnow()
+
+            return cooldown_elapsed, time_remaining
+
+        return True, 0
