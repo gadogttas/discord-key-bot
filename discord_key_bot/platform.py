@@ -1,6 +1,5 @@
 import re
-import collections
-from typing import List, Dict, Iterable, Counter
+from typing import List, Dict
 
 
 class PlatformNotFound(Exception):
@@ -111,10 +110,3 @@ def pretty_platform(platform: str) -> str:
     """Find the properly capitalized platform name"""
 
     return all_platforms[platform.lower()].name
-
-
-def counts_by_platform(platforms: Iterable[str]) -> str:
-    """Return a list of counts by platform name"""
-    c: Counter = collections.Counter(platforms)
-
-    return ", ".join(f"{pretty_platform(platform)}: {count}" for platform, count in c.items())

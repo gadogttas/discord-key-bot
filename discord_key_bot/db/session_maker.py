@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from .models import Base
 
 
-def new_session_maker(uri: str, connection_timeout: str = 15) -> sessionmaker:
+def new(uri: str, connection_timeout: str = 15) -> sessionmaker:
     engine: Engine = create_engine(
         uri,
         echo=False,

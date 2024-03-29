@@ -3,19 +3,18 @@ from typing import Dict, List
 from discord import Embed
 from discord.ext import commands
 from discord.ext.commands import Bot
+from discord_key_bot.db import search
 from sqlalchemy.orm import sessionmaker, Session
 
 from discord_key_bot.common import util
 from discord_key_bot.db.models import Game, Key, Member
-from discord_key_bot.db.search import find_game_keys_for_user, find_user_games
+from discord_key_bot.common.util import GamePlatformCount
 from discord_key_bot.platform import (
     infer_platform,
     PlatformNotFound,
     all_platforms,
     Platform,
-    pretty_platform,
 )
-from discord_key_bot.common.util import get_search_arguments
 from discord_key_bot.common.colours import Colours
 
 
@@ -102,7 +101,7 @@ class DirectCommands(commands.Cog):
             )
             return
 
-        search_args: str = get_search_arguments("_".join(game_name))
+        search_args: str = util.get_search_arguments("_".join(game_name))
 
         if not search_args:
             await util.send_error_message(ctx, "No game name provided!")
@@ -112,7 +111,7 @@ class DirectCommands(commands.Cog):
 
         member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
-        game_keys: Dict[str, List[Key]] = find_game_keys_for_user(
+        game_keys: Dict[str, List[Key]] = search.find_game_keys_for_user(
             session, member, platform, search_args
         )
         if not game_keys:
@@ -153,16 +152,14 @@ class DirectCommands(commands.Cog):
         per_page: int = 15
         offset: int = (page - 1) * per_page
 
-        user_games: Dict[str, str]
-        total: int
-        user_games, total = find_user_games(session, member, offset, per_page)
+        games: List[GamePlatformCount] = search.get_paginated_games(
+            session=session, page=page, per_page=per_page, member_id=member.id
+        )
 
-        first: int = offset + 1
-        last: int = min(page * per_page, total)
+        total: int = search.count_games(session=session, member_id=member.id)
+        first, last = util.get_page_bounds(page, per_page, total)
 
         msg: Embed = util.embed(f"Showing {first} to {last} of {total}")
-
-        for title, platform in user_games.items():
-            msg.add_field(name=f"{title}", value=f"{pretty_platform(platform)}")
+        util.add_games_to_message(msg, games)
 
         await ctx.send(embed=msg)

@@ -9,8 +9,8 @@ from typing import List, Dict, Tuple
 from discord_key_bot.common import util
 from discord_key_bot.db import search
 from discord_key_bot.db.models import Member, Key, Game
-from discord_key_bot.platform import all_platforms, counts_by_platform
-from discord_key_bot.common.util import get_search_arguments
+from discord_key_bot.platform import all_platforms, pretty_platform
+from discord_key_bot.common.util import get_search_arguments, GamePlatformCount
 from discord_key_bot.common.colours import Colours
 
 
@@ -24,8 +24,8 @@ class GuildCommands(commands.Cog):
     ):
         self.bot: Bot = bot
         self.bot_channel_id: int = bot_channel_id
-        self.wait_time = wait_time
-        self.db_session_maker = db_session_maker
+        self.wait_time: timedelta = wait_time
+        self.db_session_maker: sessionmaker = db_session_maker
 
     async def cog_before_invoke(self, ctx: commands.Context) -> None:
         if self.bot_channel_id and ctx.channel.id != self.bot_channel_id:
@@ -45,12 +45,10 @@ class GuildCommands(commands.Cog):
             await util.send_error_message(ctx, "No game name provided!")
             return
 
-        games: Dict[Game, Dict[str, List[str]]]
-        games, _ = search.find_games(session, search_args, ctx.guild.id)
-
-        for g, platforms in games.items():
-            value = "\n".join(f"{p.title()}: {len(c)}" for p, c in platforms.items())
-            msg.add_field(name=g.pretty_name, value=value, inline=True)
+        games: List[GamePlatformCount] = search.get_paginated_games(
+            session=session, search_args=search_args, guild_id=ctx.guild.id, per_page=15
+        )
+        util.add_games_to_message(msg, games)
 
         await ctx.send(embed=msg)
 
@@ -98,23 +96,24 @@ class GuildCommands(commands.Cog):
         per_page = 20
         offset = (page - 1) * per_page
 
-        games: Dict[str, int]
-        total: int
-        games, total = search.game_count_by_platform(
-            session, platform_lower, ctx.guild.id, per_page, offset
+        games: List[GamePlatformCount] = search.get_paginated_games(
+            session=session, platform=platform_lower, guild_id=ctx.guild.id, per_page=per_page, page=page,
         )
 
-        first = offset + 1
-        last = min(page * per_page, total)
+        total: int = search.count_games(
+            session=session, guild_id=ctx.guild.id, platform=platform_lower
+        )
+
+        first, last = util.get_page_bounds(page, per_page, total)
 
         msg = util.embed(
             f"Showing {first} to {last} of {total}",
-            title=f"Browse Games available for {platform}",
+            title=f"Browse Games available for {pretty_platform(platform)}",
         )
 
-        for game, count in games.items():
-            value = f"Keys available: {count}"
-            msg.add_field(name=game, value=value, inline=True)
+        for game in games:
+            value = f"Keys available: {game.platforms[0].count}"
+            msg.add_field(name=game.name, value=value, inline=True)
 
         await ctx.send(embed=msg)
 
@@ -135,22 +134,18 @@ class GuildCommands(commands.Cog):
         per_page: int = 20
         offset: int = (page - 1) * per_page
 
-        games: Dict[Game, Dict[str, List[str]]]
-        total: int
-        games, total = search.find_games(session, "", ctx.guild.id, per_page, offset)
+        games: List[GamePlatformCount] = search.get_paginated_games(
+            session=session, guild_id=ctx.guild.id, page=page, per_page=per_page
+        )
 
-        first: int = offset + 1
-        last: int = min(page * per_page, total)
+        total: int = search.count_games(session=session, guild_id=ctx.guild.id)
+
+        first, last = util.get_page_bounds(page, per_page, total)
 
         msg: Embed = util.embed(
             f"Showing {first} to {last} of {total}", title="Browse Games"
         )
-
-        for game in games:
-            msg.add_field(
-                name=game.pretty_name,
-                value=counts_by_platform([key.platform for key in game.keys]),
-            )
+        util.add_games_to_message(msg, games)
 
         await ctx.send(embed=msg)
 
@@ -170,17 +165,19 @@ class GuildCommands(commands.Cog):
 
         per_page: int = 20
 
-        games: Dict[str, Dict[str, List[str]]]
-        total: int
-        games, total = search.get_random_games(session, ctx.guild.id, per_page)
+        games: List[GamePlatformCount] = search.get_paginated_games(
+            session=session, guild_id=ctx.guild.id, per_page=per_page, random=True
+        )
+
+        total: int = search.count_games(session=session, guild_id=ctx.guild.id)
 
         msg = util.embed(
             f"Showing {min(20, total)} random games of {total} total",
             title="Random Games",
         )
 
-        for game_name, game_platforms in games.items():
-            msg.add_field(name=game_name, value=counts_by_platform(game_platforms.keys()))
+        for game in games:
+            msg.add_field(name=game.name, value=game.platforms_string())
 
         await ctx.send(embed=msg)
 
@@ -201,8 +198,9 @@ class GuildCommands(commands.Cog):
                 )
             else:
                 member.guilds.append(ctx.guild.id)
-                game_count: int
-                _, game_count = search.get_random_games(session, ctx.guild.id, 1)
+                game_count: int = search.count_games(
+                    session=session, guild_id=ctx.guild.id
+                )
                 session.commit()
                 await ctx.send(
                     embed=util.embed(
@@ -234,8 +232,9 @@ class GuildCommands(commands.Cog):
                 )
             else:
                 member.guilds.remove(ctx.guild.id)
-                game_count: int
-                _, game_count = search.get_random_games(session, ctx.guild.id, 1)
+                game_count: int = search.count_games(
+                    session=session, guild_id=ctx.guild.id
+                )
                 session.commit()
                 await ctx.send(
                     embed=util.embed(
@@ -320,7 +319,7 @@ class GuildCommands(commands.Cog):
             )
         )
 
-    def _is_cooldown_elapsed(self, timestamp) -> Tuple[bool, int]:
+    def _is_cooldown_elapsed(self, timestamp: datetime) -> Tuple[bool, int]:
         if timestamp:
             cooldown_elapsed: bool = datetime.utcnow() - timestamp > self.wait_time
             time_remaining: int = timestamp + self.wait_time - datetime.utcnow()

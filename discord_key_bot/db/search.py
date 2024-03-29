@@ -1,14 +1,18 @@
-from collections import defaultdict
+import typing
+from collections import OrderedDict
 from itertools import groupby
-from typing import Tuple, Dict, List
+from typing import Dict, List
 
-from sqlalchemy import func
-from sqlalchemy.orm import Query, Session
+from sqlalchemy.ext.baked import Result
+from sqlalchemy.orm import Session
 
+from discord_key_bot.common.util import GamePlatformCount, PlatformCount
 from discord_key_bot.db.models import Game, Key, Member, Guild
-from discord_key_bot.platform import pretty_platform
+from discord_key_bot.db import queries
+from discord_key_bot.platform import Platform, all_platforms
 
-DEFAULT_LIMIT: int = 15
+DEFAULT_PAGE_SIZE: int = 15
+
 
 
 def get_game_keys(
@@ -37,95 +41,6 @@ def get_game_keys(
     return key_dict
 
 
-def find_games(
-    session: Session,
-    search_args: str,
-    guild_id: int,
-    limit: int = DEFAULT_LIMIT,
-    offset: int = 0,
-) -> Tuple[Dict[Game, Dict[str, List[str]]], int]:
-    query: Query = (
-        session.query(Game)
-        .join(Key)
-        .filter(
-            Key.creator_id.in_(
-                session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id)
-            )
-        )
-        .filter(Game.name.like(f"%{search_args}%"))
-        .order_by(func.lower(Game.pretty_name).asc())
-    )
-
-    count: int = query.count()
-
-    if offset:
-        result = query.from_self().limit(limit).offset(offset).all()
-    else:
-        result = query.from_self().limit(limit).all()
-
-    games: Dict[Game, Dict[str, List[str]]] = defaultdict(lambda: defaultdict(list))
-    for game in result:
-        games[game] = {
-            platform: list(keys)
-            for platform, keys in groupby(game.keys, lambda x: x.platform)
-        }
-
-    return games, count
-
-
-def get_random_games(
-    session: Session, guild_id: int, limit: int = DEFAULT_LIMIT
-) -> Tuple[Dict[str, Dict[str, List[str]]], int]:
-    query: Query = (
-        session.query(Game)
-        .join(Key)
-        .filter(
-            Key.creator_id.in_(
-                session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id)
-            )
-        )
-        .order_by(func.random())
-    )
-
-    count: int = query.count()
-
-    games: Dict[str, Dict[str, List[str]]] = defaultdict(lambda: defaultdict(list))
-
-    for game in query.from_self().limit(limit).all():
-        games[game.pretty_name] = {
-            platform: list(keys)
-            for platform, keys in groupby(game.keys, lambda x: x.platform)
-        }
-
-    return games, count
-
-
-def game_count_by_platform(
-    session: Session, platform, guild_id, limit=DEFAULT_LIMIT, offset=None
-) -> Tuple[Dict[str, int], int]:
-    query: Query = (
-        session.query(Game.pretty_name, func.count(Game.pretty_name).label("count"))
-        .join(Key)
-        .filter(
-            Key.creator_id.in_(
-                session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id)
-            )
-        )
-        .filter(Key.platform == platform.lower())
-        .group_by(Game.pretty_name)
-        .order_by(func.lower(Game.pretty_name).asc())
-    )
-
-    count: int = query.count()
-
-    games: Dict[str, int] = {}
-
-    for game in query.from_self().offset(offset).limit(limit).all():
-        games[game.pretty_name] = game.count
-
-    return games, count
-
-
 def find_game_keys_for_user(
     session: Session, member: Member, platform: str, search_args: str
 ) -> Dict[str, List[Key]]:
@@ -150,21 +65,63 @@ def find_game_keys_for_user(
     return game_dict
 
 
-def find_user_games(
-    session: Session, member: Member, offset: int = 1, per_page: int = 15
-) -> Tuple[Dict[str, str], int]:
-    query: Query = (
-        session.query(Key)
-        .join(Game)
-        .filter(Key.creator_id == member.id)
-        .order_by(Game.pretty_name.asc(), Key.platform.asc())
+def get_paginated_games(
+    session: Session,
+    guild_id: int = 0,
+    member_id: int = 0,
+    platform: str = "",
+    search_args: str = "",
+    page: int = 1,
+    per_page: int = DEFAULT_PAGE_SIZE,
+    random: bool = False,
+) -> List[GamePlatformCount]:
+
+    query: str
+    if random:
+        query = queries.games_paginated_by_random
+    else:
+        query = queries.games_paginated_by_title
+
+    offset: int = (page - 1) * per_page
+
+    results: Result = session.execute(
+        query,
+        {
+            "guild_id": guild_id,
+            "offset": offset,
+            "per_page": per_page,
+            "member_id": member_id,
+            "platform": platform,
+            "search_args": search_args,
+        },
     )
 
-    count: int = query.count()
+    platform_game_dict: typing.OrderedDict[str, List[PlatformCount]] = OrderedDict()
 
-    platform_games: Dict[str, str] = {}
+    for game_name, platform_name, key_count in results:
+        platform_count: PlatformCount = PlatformCount(
+            all_platforms[platform_name], key_count
+        )
 
-    for game in query.limit(per_page).offset(offset).all():
-        platform_games[game.game.pretty_name] = pretty_platform(game.platform)
+        if game_name in platform_game_dict.keys():
+            platform_game_dict[game_name].append(platform_count)
+        else:
+            platform_game_dict[game_name] = [platform_count]
 
-    return platform_games, count
+    platform_games: List[GamePlatformCount] = [
+        GamePlatformCount(game, platforms)
+        for game, platforms in platform_game_dict.items()
+    ]
+
+    return platform_games
+
+
+def count_games(
+    session: Session, guild_id: int = 0, platform: str = "", member_id: int = 0
+) -> int:
+    results: Result = session.execute(
+        queries.count_games,
+        {"guild_id": guild_id, "member_id": member_id, "platform": platform},
+    )
+
+    return results.first()[0]
