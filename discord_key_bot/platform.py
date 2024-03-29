@@ -1,5 +1,6 @@
 import re
-from typing import List, Dict, Iterable
+import collections
+from typing import List, Dict, Iterable, Counter
 
 
 class PlatformNotFound(Exception):
@@ -11,7 +12,9 @@ class PlatformNotFound(Exception):
 class Platform(object):
     """Class representing a platform"""
 
-    def __init__(self, name: str, key_regexes: List[str], example_keys: List[str]) -> None:
+    def __init__(
+        self, name: str, key_regexes: List[str], example_keys: List[str]
+    ) -> None:
         self.name: str = name
         self.search_name: str = name.lower()
         self._patterns: List[re.Pattern] = self._compile_patterns(key_regexes)
@@ -95,6 +98,8 @@ all_platforms: Dict[str, Platform] = {
 
 
 def infer_platform(key: str) -> Platform:
+    """Guess the platform"""
+
     for platform in all_platforms.values():
         if platform.is_valid_key(key):
             return platform
@@ -108,7 +113,8 @@ def pretty_platform(platform: str) -> str:
     return all_platforms[platform.lower()].name
 
 
-def pretty_platforms(platforms: Iterable[str]) -> str:
-    """Deduplicate and properly capitalize the provided list of platform names"""
+def counts_by_platform(platforms: Iterable[str]) -> str:
+    """Return a list of counts by platform name"""
+    c: Counter = collections.Counter(platforms)
 
-    return ", ".join(pretty_platform(platform) for platform in sorted(set(platforms)))
+    return ", ".join(f"{pretty_platform(platform)}: {count}" for platform, count in c.items())

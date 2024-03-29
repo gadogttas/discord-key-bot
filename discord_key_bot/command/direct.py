@@ -2,9 +2,10 @@ from typing import Dict, List
 
 from discord import Embed
 from discord.ext import commands
+from discord.ext.commands import Bot
+from sqlalchemy.orm import sessionmaker, Session
 
 from discord_key_bot.common import util
-from discord_key_bot.db import Session
 from discord_key_bot.db.models import Game, Key, Member
 from discord_key_bot.db.search import find_game_keys_for_user, find_user_games
 from discord_key_bot.platform import (
@@ -21,13 +22,14 @@ from discord_key_bot.common.colours import Colours
 class DirectCommands(commands.Cog):
     """Run these commands in private messages to the bot"""
 
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self, bot: Bot, db_session_maker: sessionmaker):
+        self.bot: Bot = bot
+        self.db_sessionmaker: sessionmaker = db_session_maker
 
     @commands.command()
     async def add(self, ctx: commands.Context, key: str, *game_name: str) -> None:
         """Add a key"""
-        session: Session = Session()
+        session: Session = self.db_sessionmaker()
 
         pretty_name: str = " ".join(game_name)
 
@@ -106,7 +108,7 @@ class DirectCommands(commands.Cog):
             await util.send_error_message(ctx, "No game name provided!")
             return
 
-        session: Session = Session()
+        session: Session = self.db_sessionmaker()
 
         member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
@@ -145,7 +147,7 @@ class DirectCommands(commands.Cog):
             )
             return
 
-        session: Session = Session()
+        session: Session = self.db_sessionmaker()
         member = Member.get(session, ctx.author.id, ctx.author.name)
 
         per_page: int = 15

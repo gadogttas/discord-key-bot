@@ -2,9 +2,9 @@ from collections import defaultdict
 from itertools import groupby
 from typing import Tuple, Dict, List
 
-from sqlalchemy.orm import Query
+from sqlalchemy import func
+from sqlalchemy.orm import Query, Session
 
-from discord_key_bot.db import func, Session
 from discord_key_bot.db.models import Game, Key, Member, Guild
 from discord_key_bot.platform import pretty_platform
 

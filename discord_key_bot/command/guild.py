@@ -1,26 +1,34 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from discord import Embed
 from discord.ext import commands
-from sqlalchemy.orm import Session
+from discord.ext.commands import Bot
+from sqlalchemy.orm import Session, sessionmaker
 from typing import List, Dict, Tuple
 
 from discord_key_bot.common import util
-from discord_key_bot.db import Session, search
+from discord_key_bot.db import search
 from discord_key_bot.db.models import Member, Key, Game
-from discord_key_bot.platform import all_platforms, pretty_platform, pretty_platforms
+from discord_key_bot.platform import all_platforms, counts_by_platform
 from discord_key_bot.common.util import get_search_arguments
 from discord_key_bot.common.colours import Colours
 
 
 class GuildCommands(commands.Cog):
-    def __init__(self, bot, bot_channel_id, wait_time):
-        self.bot = bot
-        self.bot_channel_id = bot_channel_id
+    def __init__(
+        self,
+        bot: Bot,
+        db_session_maker: sessionmaker,
+        bot_channel_id: int,
+        wait_time: timedelta,
+    ):
+        self.bot: Bot = bot
+        self.bot_channel_id: int = bot_channel_id
         self.wait_time = wait_time
+        self.db_session_maker = db_session_maker
 
     async def cog_before_invoke(self, ctx: commands.Context) -> None:
-        if self.bot_channel_id and str(ctx.channel.id) != self.bot_channel_id:
+        if self.bot_channel_id and ctx.channel.id != self.bot_channel_id:
             raise commands.CommandError("wrong channel")
 
     @commands.command()
@@ -29,7 +37,7 @@ class GuildCommands(commands.Cog):
 
         msg = util.embed("Top 15 search results...", title="Search Results")
 
-        session: Session = Session()
+        session: Session = self.db_session_maker()
 
         search_args = get_search_arguments("_".join(game_name))
 
@@ -85,7 +93,7 @@ class GuildCommands(commands.Cog):
             )
             return
 
-        session: Session = Session()
+        session: Session = self.db_session_maker()
 
         per_page = 20
         offset = (page - 1) * per_page
@@ -122,7 +130,7 @@ class GuildCommands(commands.Cog):
             )
             return
 
-        session: Session = Session()
+        session: Session = self.db_session_maker()
 
         per_page: int = 20
         offset: int = (page - 1) * per_page
@@ -141,7 +149,7 @@ class GuildCommands(commands.Cog):
         for game in games:
             msg.add_field(
                 name=game.pretty_name,
-                value=pretty_platforms([key.platform for key in game.keys]),
+                value=counts_by_platform([key.platform for key in game.keys]),
             )
 
         await ctx.send(embed=msg)
@@ -158,7 +166,7 @@ class GuildCommands(commands.Cog):
             )
             return
 
-        session: Session = Session()
+        session: Session = self.db_session_maker()
 
         per_page: int = 20
 
@@ -172,14 +180,14 @@ class GuildCommands(commands.Cog):
         )
 
         for game_name, game_platforms in games.items():
-            msg.add_field(name=game_name, value=pretty_platforms(game_platforms.keys()))
+            msg.add_field(name=game_name, value=counts_by_platform(game_platforms.keys()))
 
         await ctx.send(embed=msg)
 
     @commands.command()
     async def share(self, ctx: commands.Context):
         """Share your keys with this guild"""
-        session: Session = Session()
+        session: Session = self.db_session_maker()
 
         member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
@@ -213,7 +221,7 @@ class GuildCommands(commands.Cog):
     @commands.command()
     async def unshare(self, ctx: commands.Context):
         """Remove this guild from the guilds you share keys with"""
-        session: Session = Session()
+        session: Session = self.db_session_maker()
         member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
         if ctx.guild:
@@ -246,7 +254,7 @@ class GuildCommands(commands.Cog):
     @commands.command()
     async def claim(self, ctx: commands.Context, platform: str, *game_name: str):
         """Claims a game from available keys"""
-        session: Session = Session()
+        session: Session = self.db_session_maker()
 
         member: Member = Member.get(session, ctx.author.id, ctx.author.name)
         ready, timeleft = self._is_cooldown_elapsed(member.last_claim)
