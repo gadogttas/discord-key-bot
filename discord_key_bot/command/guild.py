@@ -132,7 +132,6 @@ class GuildCommands(commands.Cog):
         session: Session = self.db_session_maker()
 
         per_page: int = 20
-        offset: int = (page - 1) * per_page
 
         games: List[GamePlatformCount] = search.get_paginated_games(
             session=session, guild_id=ctx.guild.id, page=page, per_page=per_page

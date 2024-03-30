@@ -56,9 +56,7 @@ class DirectCommands(commands.Cog):
                 )
             )
 
-        found: int = session.query(Key).filter(Key.key == key).count()
-
-        if found:
+        if search.key_exists(session, key):
             await ctx.send(
                 embed=util.embed(
                     f"Key already exists!",

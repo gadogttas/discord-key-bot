@@ -125,3 +125,7 @@ def count_games(
     )
 
     return results.first()[0]
+
+
+def key_exists(session: Session, key: str) -> bool:
+    return bool(session.query(Key).filter(Key.key == key).count())
