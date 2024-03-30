@@ -14,7 +14,6 @@ from discord_key_bot.platform import Platform, all_platforms
 DEFAULT_PAGE_SIZE: int = 15
 
 
-
 def get_game_keys(
     session: Session, game_name: str, guild_id: int
 ) -> Dict[str, List[Key]]:

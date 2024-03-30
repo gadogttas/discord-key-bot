@@ -1,3 +1,4 @@
+import inspect
 from typing import Dict, List
 
 from discord import Embed
@@ -26,17 +27,30 @@ class DirectCommands(commands.Cog):
         self.db_sessionmaker: sessionmaker = db_session_maker
 
     @commands.command()
-    async def add(self, ctx: commands.Context, key: str, *game_name: str) -> None:
+    async def add(
+        self,
+        ctx: commands.Context,
+        key: str = commands.Parameter(
+            name="key",
+            description="The key you wish to add",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+        ),
+        *,
+        game_name: str = commands.Parameter(
+            name="game_name",
+            displayed_name="Game Name",
+            description="The name of the game you wish to add a key for",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+        ),
+    ) -> None:
         """Add a key"""
         session: Session = self.db_sessionmaker()
 
-        pretty_name: str = " ".join(game_name)
-
-        if not pretty_name:
+        if not game_name:
             await util.send_error_message(ctx, "No game name provided!")
             return
 
-        game: Game = Game.get(session, pretty_name)
+        game: Game = Game.get(session, game_name)
 
         try:
             platform: Platform = infer_platform(key)
@@ -83,7 +97,21 @@ class DirectCommands(commands.Cog):
 
     @commands.command()
     async def remove(
-        self, ctx: commands.Context, platform: str, *game_name: str
+        self,
+        ctx: commands.Context,
+        platform: str = commands.Parameter(
+            name="platform",
+            displayed_name="Platform",
+            description="The platform of the game you wish to remove",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+        ),
+        *,
+        game_name: str = commands.Parameter(
+            name="game_name",
+            displayed_name="Game Name",
+            description="The name of the game you wish to remove",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+        ),
     ) -> None:
         """Remove a key and send to you in a PM"""
 
@@ -136,7 +164,17 @@ class DirectCommands(commands.Cog):
         await ctx.author.send(embed=msg)
 
     @commands.command()
-    async def mykeys(self, ctx: commands.Context, page: int = 1) -> None:
+    async def mykeys(
+        self,
+        ctx: commands.Context,
+        page: int = commands.Parameter(
+            name="page",
+            displayed_name="Page Number",
+            description="The page number (15 games per page)",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+            default=1,
+        ),
+    ) -> None:
         """Browse your own keys"""
         if ctx.guild:
             await ctx.author.send(

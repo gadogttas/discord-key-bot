@@ -14,7 +14,10 @@ async def new(
     command_prefix: str,
     wait_time: datetime.timedelta,
 ) -> Bot:
-    bot = commands.Bot(command_prefix=command_prefix, intents=discord.Intents(messages=True, message_content=True))
+    bot = commands.Bot(
+        command_prefix=command_prefix,
+        intents=discord.Intents(messages=True, message_content=True),
+    )
 
     @bot.event
     async def on_command_error(ctx: commands.Context, error: CommandError):
@@ -29,7 +32,9 @@ async def new(
                 f"**Please pass in all requirements. Use** `{command_prefix}help {ctx.invoked_with}` **to see requirements.**"
             )
 
-    await bot.add_cog(guild.GuildCommands(bot, db_session_maker, bot_channel_id, wait_time))
+    await bot.add_cog(
+        guild.GuildCommands(bot, db_session_maker, bot_channel_id, wait_time)
+    )
     await bot.add_cog(direct.DirectCommands(bot, db_session_maker))
 
     return bot

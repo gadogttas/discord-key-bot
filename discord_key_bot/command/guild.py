@@ -1,3 +1,4 @@
+import inspect
 from datetime import datetime, timedelta
 
 from discord import Embed
@@ -32,28 +33,39 @@ class GuildCommands(commands.Cog):
             raise commands.CommandError("wrong channel")
 
     @commands.command()
-    async def search(self, ctx: commands.Context, *game_name: str):
-        """Searches available games"""
+    async def search(
+        self,
+        ctx: commands.Context,
+        *,
+        game_name: str = commands.Parameter(
+            name="game_name",
+            displayed_name="Game Name",
+            description="The name of the game you wish to search for",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+        ),
+    ) -> None:
+        """Search available games"""
 
         msg = util.embed("Top 15 search results...", title="Search Results")
 
         session: Session = self.db_session_maker()
 
-        search_args = get_search_arguments("_".join(game_name))
-
-        if not search_args:
+        if not game_name:
             await util.send_error_message(ctx, "No game name provided!")
             return
 
         games: List[GamePlatformCount] = search.get_paginated_games(
-            session=session, search_args=search_args, guild_id=ctx.guild.id, per_page=15
+            session=session,
+            search_args=get_search_arguments(game_name),
+            guild_id=ctx.guild.id,
+            per_page=15,
         )
         util.add_games_to_message(msg, games)
 
         await ctx.send(embed=msg)
 
     @commands.command()
-    async def platforms(self, ctx: commands.Context):
+    async def platforms(self, ctx: commands.Context) -> None:
         """Shows valid platforms"""
 
         msg: Embed = util.embed(
@@ -68,8 +80,24 @@ class GuildCommands(commands.Cog):
         await ctx.send(embed=msg)
 
     @commands.command()
-    async def platform(self, ctx: commands.Context, platform: str, page: int = 1):
-        """Searches available games by platform"""
+    async def platform(
+        self,
+        ctx: commands.Context,
+        platform: str = commands.Parameter(
+            name="platform",
+            displayed_name="Platform",
+            description="The platform you wish to see games for (e.g. Steam)",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+        ),
+        page: int = commands.Parameter(
+            name="page",
+            displayed_name="Page Number",
+            description="The page number to display (15 games per page)",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+            default=1,
+        ),
+    ) -> None:
+        """Lists available games for the specified platform"""
 
         if not ctx.guild:
             await ctx.send(
@@ -97,7 +125,11 @@ class GuildCommands(commands.Cog):
         offset = (page - 1) * per_page
 
         games: List[GamePlatformCount] = search.get_paginated_games(
-            session=session, platform=platform_lower, guild_id=ctx.guild.id, per_page=per_page, page=page,
+            session=session,
+            platform=platform_lower,
+            guild_id=ctx.guild.id,
+            per_page=per_page,
+            page=page,
         )
 
         total: int = search.count_games(
@@ -118,7 +150,17 @@ class GuildCommands(commands.Cog):
         await ctx.send(embed=msg)
 
     @commands.command()
-    async def browse(self, ctx: commands.Context, page: int = 1):
+    async def browse(
+        self,
+        ctx: commands.Context,
+        page: int = commands.Parameter(
+            name="page",
+            displayed_name="Page Number",
+            description="The page number (15 games per page)",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+            default=1,
+        ),
+    ) -> None:
         """Browse through available games"""
 
         if not ctx.guild:
@@ -149,7 +191,7 @@ class GuildCommands(commands.Cog):
         await ctx.send(embed=msg)
 
     @commands.command()
-    async def random(self, ctx: commands.Context):
+    async def random(self, ctx: commands.Context) -> None:
         """Display 20 random available games"""
 
         if not ctx.guild:
@@ -181,7 +223,7 @@ class GuildCommands(commands.Cog):
         await ctx.send(embed=msg)
 
     @commands.command()
-    async def share(self, ctx: commands.Context):
+    async def share(self, ctx: commands.Context) -> None:
         """Share your keys with this guild"""
         session: Session = self.db_session_maker()
 
@@ -216,7 +258,7 @@ class GuildCommands(commands.Cog):
             )
 
     @commands.command()
-    async def unshare(self, ctx: commands.Context):
+    async def unshare(self, ctx: commands.Context) -> None:
         """Remove this guild from the guilds you share keys with"""
         session: Session = self.db_session_maker()
         member: Member = Member.get(session, ctx.author.id, ctx.author.name)
@@ -250,7 +292,23 @@ class GuildCommands(commands.Cog):
             )
 
     @commands.command()
-    async def claim(self, ctx: commands.Context, platform: str, *game_name: str):
+    async def claim(
+        self,
+        ctx: commands.Context,
+        platform: str = commands.Parameter(
+            name="platform",
+            displayed_name="Platform",
+            description="The platform you wish to claim a key for (e.g. Steam)",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+        ),
+        *,
+        game_name: str = commands.Parameter(
+            name="game_name",
+            displayed_name="Game Name",
+            description="The name of the game you wish to claim a key for",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+        ),
+    ) -> None:
         """Claims a game from available keys"""
         session: Session = self.db_session_maker()
 
@@ -278,7 +336,7 @@ class GuildCommands(commands.Cog):
             )
             return
 
-        search_args: str = get_search_arguments("_".join(game_name))
+        search_args: str = get_search_arguments(game_name)
 
         if not search_args:
             await util.send_error_message(ctx, "No game name provided!")
@@ -321,6 +379,7 @@ class GuildCommands(commands.Cog):
     def _is_cooldown_elapsed(self, timestamp: datetime) -> Tuple[bool, int]:
         if timestamp:
             cooldown_elapsed: bool = datetime.utcnow() - timestamp > self.wait_time
+            # noinspection PyTypeChecker
             time_remaining: int = timestamp + self.wait_time - datetime.utcnow()
 
             return cooldown_elapsed, time_remaining
