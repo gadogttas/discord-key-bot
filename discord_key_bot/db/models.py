@@ -1,10 +1,10 @@
-import re
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Table
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.associationproxy import association_proxy
 
-from discord_key_bot.keyparse import parse_name
+from discord_key_bot.common.util import get_search_arguments
+
 
 Base = declarative_base()
 
@@ -18,7 +18,7 @@ class Game(Base):
 
     @classmethod
     def get(cls, session, pretty_name):
-        name = parse_name(pretty_name)
+        name = get_search_arguments(pretty_name)
         game = session.query(cls).filter(cls.name == name).first()
 
         if not game:
