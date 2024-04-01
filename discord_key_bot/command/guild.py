@@ -10,8 +10,9 @@ from typing import List, Dict, Tuple
 from discord_key_bot.common import util
 from discord_key_bot.db import search
 from discord_key_bot.db.models import Member, Key, Game
+from discord_key_bot.db.queries import SortOrder
 from discord_key_bot.platform import all_platforms, pretty_platform
-from discord_key_bot.common.util import get_search_arguments, GamePlatformCount
+from discord_key_bot.common.util import GamePlatformCount
 from discord_key_bot.common.colours import Colours
 
 
@@ -56,9 +57,10 @@ class GuildCommands(commands.Cog):
 
         games: List[GamePlatformCount] = search.get_paginated_games(
             session=session,
-            search_args=get_search_arguments(game_name),
+            title=game_name,
             guild_id=ctx.guild.id,
             per_page=15,
+            sort=SortOrder.TITLE
         )
         util.add_games_to_message(msg, games)
 
@@ -130,6 +132,7 @@ class GuildCommands(commands.Cog):
             guild_id=ctx.guild.id,
             per_page=per_page,
             page=page,
+            sort=SortOrder.TITLE
         )
 
         total: int = search.count_games(
@@ -176,7 +179,11 @@ class GuildCommands(commands.Cog):
         per_page: int = 20
 
         games: List[GamePlatformCount] = search.get_paginated_games(
-            session=session, guild_id=ctx.guild.id, page=page, per_page=per_page
+            session=session,
+            guild_id=ctx.guild.id,
+            page=page,
+            per_page=per_page,
+            sort=SortOrder.TITLE,
         )
 
         total: int = search.count_games(session=session, guild_id=ctx.guild.id)
@@ -185,6 +192,53 @@ class GuildCommands(commands.Cog):
 
         msg: Embed = util.embed(
             f"Showing {first} to {last} of {total}", title="Browse Games"
+        )
+        util.add_games_to_message(msg, games)
+
+        await ctx.send(embed=msg)
+
+
+    # TODO: this is not DRY at all
+    @commands.command()
+    async def latest(
+        self,
+        ctx: commands.Context,
+        page: int = commands.Parameter(
+            name="page",
+            displayed_name="Page Number",
+            description="The page number (15 games per page)",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+            default=1,
+        ),
+    ) -> None:
+        """Browse through available games by date added in descending order"""
+
+        if not ctx.guild:
+            await ctx.send(
+                embed=util.embed(
+                    f"This command should be sent in a guild. To see your keys use `{self.bot.command_prefix}mykeys`"
+                )
+            )
+            return
+
+        session: Session = self.db_session_maker()
+
+        per_page: int = 20
+
+        games: List[GamePlatformCount] = search.get_paginated_games(
+            session=session,
+            guild_id=ctx.guild.id,
+            page=page,
+            per_page=per_page,
+            sort=SortOrder.LATEST,
+        )
+
+        total: int = search.count_games(session=session, guild_id=ctx.guild.id)
+
+        first, last = util.get_page_bounds(page, per_page, total)
+
+        msg: Embed = util.embed(
+            f"Showing {first} to {last} of {total}", title="Latest Games"
         )
         util.add_games_to_message(msg, games)
 
@@ -207,7 +261,10 @@ class GuildCommands(commands.Cog):
         per_page: int = 20
 
         games: List[GamePlatformCount] = search.get_paginated_games(
-            session=session, guild_id=ctx.guild.id, per_page=per_page, random=True
+            session=session,
+            guild_id=ctx.guild.id,
+            per_page=per_page,
+            sort=SortOrder.RANDOM,
         )
 
         total: int = search.count_games(session=session, guild_id=ctx.guild.id)
@@ -336,14 +393,8 @@ class GuildCommands(commands.Cog):
             )
             return
 
-        search_args: str = get_search_arguments(game_name)
-
-        if not search_args:
-            await util.send_error_message(ctx, "No game name provided!")
-            return
-
         game_keys: Dict[str, List[Key]] = search.get_game_keys(
-            session, search_args, ctx.guild.id
+            session, game_name, ctx.guild.id
         )
 
         if not game_keys:

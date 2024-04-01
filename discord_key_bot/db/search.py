@@ -6,10 +6,11 @@ from typing import Dict, List
 from sqlalchemy.ext.baked import Result
 from sqlalchemy.orm import Session
 
-from discord_key_bot.common.util import GamePlatformCount, PlatformCount
+from discord_key_bot.common.util import GamePlatformCount, PlatformCount, get_search_name
 from discord_key_bot.db.models import Game, Key, Member, Guild
 from discord_key_bot.db import queries
-from discord_key_bot.platform import Platform, all_platforms
+from discord_key_bot.db.queries import SortOrder, paginated_queries
+from discord_key_bot.platform import all_platforms
 
 DEFAULT_PAGE_SIZE: int = 15
 
@@ -25,7 +26,7 @@ def get_game_keys(
                 session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id)
             )
         )
-        .filter(Game.name == game_name)
+        .filter(Game.name == get_search_name(game_name))
         .first()
     )
 
@@ -69,17 +70,14 @@ def get_paginated_games(
     guild_id: int = 0,
     member_id: int = 0,
     platform: str = "",
-    search_args: str = "",
+    title: str = "",
     page: int = 1,
     per_page: int = DEFAULT_PAGE_SIZE,
-    random: bool = False,
+    sort: SortOrder = SortOrder.TITLE,
 ) -> List[GamePlatformCount]:
 
-    query: str
-    if random:
-        query = queries.games_paginated_by_random
-    else:
-        query = queries.games_paginated_by_title
+    # TODO: make a less hacky query building solution
+    query: str = paginated_queries[sort]
 
     offset: int = (page - 1) * per_page
 
@@ -91,7 +89,7 @@ def get_paginated_games(
             "per_page": per_page,
             "member_id": member_id,
             "platform": platform,
-            "search_args": search_args,
+            "search_args": get_search_name(title),
         },
     )
 
@@ -128,3 +126,5 @@ def count_games(
 
 def key_exists(session: Session, key: str) -> bool:
     return bool(session.query(Key).filter(Key.key == key).count())
+
+

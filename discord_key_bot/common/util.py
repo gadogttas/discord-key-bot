@@ -49,6 +49,5 @@ async def send_error_message(ctx: commands.Context, message: str) -> None:
     await ctx.send(embed=embed(message, Colours.RED))
 
 
-def get_search_arguments(pretty_name: str) -> str:
-    name = re.sub(r"\W", "_", pretty_name.lower())
-    return name
+def get_search_name(title: str) -> str:
+    return re.sub(r"\W", "_", title.lower())

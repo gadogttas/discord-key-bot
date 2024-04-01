@@ -1,3 +1,13 @@
+from enum import Enum
+from typing import Dict
+
+
+class SortOrder(Enum):
+    TITLE = 1
+    LATEST = 2
+    RANDOM = 3
+
+
 _paginated_game_template: str = """
 WITH platform_games AS (
     SELECT 
@@ -43,11 +53,14 @@ FROM
     JOIN page
         ON platform_games.game_id = page.game_id
     ORDER BY 
-        LOWER(game_name) ASC;
+        {};
 """
 
-games_paginated_by_title: str = _paginated_game_template.format("LOWER(game_name) ASC")
-games_paginated_by_random: str = _paginated_game_template.format("RANDOM()")
+paginated_queries: Dict[SortOrder, str] = {
+    SortOrder.TITLE: _paginated_game_template.format("LOWER(game_name) ASC", "LOWER(game_name) ASC"),
+    SortOrder.LATEST: _paginated_game_template.format("game_id DESC", "platform_games.game_id DESC"),
+    SortOrder.RANDOM: _paginated_game_template.format("RANDOM()", "LOWER(game_name) ASC"),
+}
 
 count_games: str = """
     SELECT 
