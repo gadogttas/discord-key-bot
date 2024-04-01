@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from discord_key_bot.common import util
 from discord_key_bot.db.models import Game, Key, Member
 from discord_key_bot.common.util import GamePlatformCount
+from discord_key_bot.db.queries import SortOrder
 from discord_key_bot.platform import (
     infer_platform,
     PlatformNotFound,
@@ -127,18 +128,13 @@ class DirectCommands(commands.Cog):
             )
             return
 
-        search_args: str = util.get_search_arguments("_".join(game_name))
-
-        if not search_args:
-            await util.send_error_message(ctx, "No game name provided!")
-            return
 
         session: Session = self.db_sessionmaker()
 
         member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
         game_keys: Dict[str, List[Key]] = search.find_game_keys_for_user(
-            session, member, platform, search_args
+            session, member, platform, game_name
         )
         if not game_keys:
             await ctx.send(embed=util.embed("Game not found"))
@@ -186,10 +182,13 @@ class DirectCommands(commands.Cog):
         member = Member.get(session, ctx.author.id, ctx.author.name)
 
         per_page: int = 15
-        offset: int = (page - 1) * per_page
 
         games: List[GamePlatformCount] = search.get_paginated_games(
-            session=session, page=page, per_page=per_page, member_id=member.id
+            session=session,
+            page=page,
+            per_page=per_page,
+            member_id=member.id,
+            sort=SortOrder.TITLE
         )
 
         total: int = search.count_games(session=session, member_id=member.id)
