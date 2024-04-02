@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker, Session
 
 from discord_key_bot.common import util
 from discord_key_bot.db.models import Game, Key, Member
-from discord_key_bot.common.util import GamePlatformCount
+from discord_key_bot.common.util import GamePlatformCount, send_with_retry
 from discord_key_bot.db.queries import SortOrder
 from discord_key_bot.platform import (
     infer_platform,
@@ -47,16 +47,15 @@ class DirectCommands(commands.Cog):
         """Add a key"""
         session: Session = self.db_sessionmaker()
 
-        if not game_name:
-            await util.send_error_message(ctx, "No game name provided!")
-            return
-
         game: Game = Game.get(session, game_name)
 
         try:
             platform: Platform = infer_platform(key)
         except PlatformNotFound:
-            await ctx.send(embed=util.embed("Unrecognized key format!", Colours.RED))
+            await send_with_retry(
+                ctx=ctx,
+                msg=util.embed("Unrecognized key format!", Colours.RED),
+            )
             return
 
         if ctx.guild:
@@ -72,11 +71,9 @@ class DirectCommands(commands.Cog):
             )
 
         if search.key_exists(session, key):
-            await ctx.send(
-                embed=util.embed(
-                    f"Key already exists!",
-                    Colours.GOLD,
-                )
+            await send_with_retry(
+                ctx=ctx,
+                msg=util.embed(f"Key already exists!", Colours.GOLD),
             )
             return
 
@@ -119,15 +116,15 @@ class DirectCommands(commands.Cog):
         platform_lower: str = platform.lower()
 
         if platform_lower not in all_platforms.keys():
-            await ctx.send(
-                embed=util.embed(
+            await send_with_retry(
+                ctx=ctx,
+                msg=util.embed(
                     f'"{platform}" is not valid platform',
                     colour=Colours.RED,
                     title="Search Error",
-                )
+                ),
             )
             return
-
 
         session: Session = self.db_sessionmaker()
 
@@ -137,7 +134,7 @@ class DirectCommands(commands.Cog):
             session, member, platform, game_name
         )
         if not game_keys:
-            await ctx.send(embed=util.embed("Game not found"))
+            await send_with_retry(ctx=ctx, msg=util.embed("Game not found"))
             return
 
         key: Key = game_keys[platform_lower][0]
@@ -188,7 +185,7 @@ class DirectCommands(commands.Cog):
             page=page,
             per_page=per_page,
             member_id=member.id,
-            sort=SortOrder.TITLE
+            sort=SortOrder.TITLE,
         )
 
         total: int = search.count_games(session=session, member_id=member.id)
@@ -197,4 +194,4 @@ class DirectCommands(commands.Cog):
         msg: Embed = util.embed(f"Showing {first} to {last} of {total}")
         util.add_games_to_message(msg, games)
 
-        await ctx.send(embed=msg)
+        await send_with_retry(ctx=ctx, msg=msg)

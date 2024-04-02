@@ -8,6 +8,8 @@ from discord.ext import commands
 from discord_key_bot.common.colours import Colours
 from discord_key_bot.platform import Platform
 
+RETRIES: int = 3
+
 
 class PlatformCount(typing.NamedTuple):
     platform: Platform
@@ -45,9 +47,22 @@ def add_games_to_message(msg: discord.Embed, games: List[GamePlatformCount]) -> 
         msg.add_field(name=game.name, value=game.platforms_string())
 
 
-async def send_error_message(ctx: commands.Context, message: str) -> None:
-    await ctx.send(embed=embed(message, Colours.RED))
-
-
 def get_search_name(title: str) -> str:
     return re.sub(r"\W", "_", title.lower())
+
+
+async def send_with_retry(
+    ctx: commands.Context, msg: typing.Union[str, discord.Embed], tries: int = RETRIES
+) -> None:
+    while True:
+        try:
+            if isinstance(msg, str):
+                await ctx.send(msg)
+            else:
+                await ctx.send(embed=msg)
+            return
+        except Exception as e:
+            if tries:
+                tries -= 1
+            else:
+                raise e

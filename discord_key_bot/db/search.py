@@ -6,7 +6,11 @@ from typing import Dict, List
 from sqlalchemy.ext.baked import Result
 from sqlalchemy.orm import Session
 
-from discord_key_bot.common.util import GamePlatformCount, PlatformCount, get_search_name
+from discord_key_bot.common.util import (
+    GamePlatformCount,
+    PlatformCount,
+    get_search_name,
+)
 from discord_key_bot.db.models import Game, Key, Member, Guild
 from discord_key_bot.db import queries
 from discord_key_bot.db.queries import SortOrder, paginated_queries
@@ -126,5 +130,3 @@ def count_games(
 
 def key_exists(session: Session, key: str) -> bool:
     return bool(session.query(Key).filter(Key.key == key).count())
-
-

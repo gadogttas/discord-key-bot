@@ -57,9 +57,15 @@ FROM
 """
 
 paginated_queries: Dict[SortOrder, str] = {
-    SortOrder.TITLE: _paginated_game_template.format("LOWER(game_name) ASC", "LOWER(game_name) ASC"),
-    SortOrder.LATEST: _paginated_game_template.format("game_id DESC", "platform_games.game_id DESC"),
-    SortOrder.RANDOM: _paginated_game_template.format("RANDOM()", "LOWER(game_name) ASC"),
+    SortOrder.TITLE: _paginated_game_template.format(
+        "LOWER(game_name) ASC", "LOWER(game_name) ASC"
+    ),
+    SortOrder.LATEST: _paginated_game_template.format(
+        "game_id DESC", "platform_games.game_id DESC"
+    ),
+    SortOrder.RANDOM: _paginated_game_template.format(
+        "RANDOM()", "LOWER(game_name) ASC"
+    ),
 }
 
 count_games: str = """
