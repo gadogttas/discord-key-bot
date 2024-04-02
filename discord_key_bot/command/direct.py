@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker, Session
 
 from discord_key_bot.common import util
 from discord_key_bot.db.models import Game, Key, Member
-from discord_key_bot.common.util import GamePlatformCount, send_with_retry
+from discord_key_bot.common.util import GamePlatformCount, send_with_retry, get_page_header_text
 from discord_key_bot.db.queries import SortOrder
 from discord_key_bot.platform import (
     infer_platform,
@@ -189,9 +189,8 @@ class DirectCommands(commands.Cog):
         )
 
         total: int = search.count_games(session=session, member_id=member.id)
-        first, last = util.get_page_bounds(page, per_page, total)
 
-        msg: Embed = util.embed(f"Showing {first} to {last} of {total}")
+        msg: Embed = util.embed(get_page_header_text(page, total, per_page) )
         util.add_games_to_message(msg, games)
 
         await send_with_retry(ctx=ctx, msg=msg)

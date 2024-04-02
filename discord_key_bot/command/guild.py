@@ -12,7 +12,7 @@ from discord_key_bot.db import search
 from discord_key_bot.db.models import Member, Key, Game
 from discord_key_bot.db.queries import SortOrder
 from discord_key_bot.platform import all_platforms, pretty_platform
-from discord_key_bot.common.util import GamePlatformCount, send_with_retry
+from discord_key_bot.common.util import GamePlatformCount, send_with_retry, get_page_header_text
 from discord_key_bot.common.colours import Colours
 
 
@@ -127,10 +127,8 @@ class GuildCommands(commands.Cog):
             session=session, guild_id=ctx.guild.id, platform=platform_lower
         )
 
-        first, last = util.get_page_bounds(page, per_page, total)
-
         msg = util.embed(
-            f"Showing {first} to {last} of {total}",
+            get_page_header_text(page, total, per_page),
             title=f"Browse Games available for {pretty_platform(platform)}",
         )
 
@@ -168,10 +166,8 @@ class GuildCommands(commands.Cog):
 
         total: int = search.count_games(session=session, guild_id=ctx.guild.id)
 
-        first, last = util.get_page_bounds(page, per_page, total)
-
         msg: Embed = util.embed(
-            f"Showing {first} to {last} of {total}", title="Browse Games"
+            get_page_header_text(page, total, per_page), title="Browse Games"
         )
         util.add_games_to_message(msg, games)
 
@@ -206,10 +202,8 @@ class GuildCommands(commands.Cog):
 
         total: int = search.count_games(session=session, guild_id=ctx.guild.id)
 
-        first, last = util.get_page_bounds(page, per_page, total)
-
         msg: Embed = util.embed(
-            f"Showing {first} to {last} of {total}", title="Latest Games"
+            get_page_header_text(page, total, per_page), title="Latest Games"
         )
         util.add_games_to_message(msg, games)
 

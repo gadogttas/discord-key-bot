@@ -1,5 +1,6 @@
 import re
 import typing
+from math import ceil
 from typing import List, Tuple
 
 import discord
@@ -25,15 +26,6 @@ class GamePlatformCount(typing.NamedTuple):
 
     def platforms_string(self) -> str:
         return ", ".join(str(platform) for platform in self.platforms)
-
-
-def get_page_bounds(page: int, per_page: int, total: int) -> Tuple[int, int]:
-    offset: int = (page - 1) * per_page
-
-    first: int = min(offset + 1, total)
-    last: int = min(page * per_page, total)
-
-    return first, last
 
 
 def embed(
@@ -66,3 +58,9 @@ async def send_with_retry(
                 tries -= 1
             else:
                 raise e
+
+
+def get_page_header_text(page: int, total: int, per_page: int) -> str:
+    pages: int = ceil(total / per_page)
+
+    return f"Showing page {page} of {pages} ({total} games)"
