@@ -4,6 +4,8 @@ from typing import Dict, List
 from discord import Embed
 from discord.ext import commands
 from discord.ext.commands import Bot
+
+from discord_key_bot.common.constants import DEFAULT_PAGE_SIZE
 from discord_key_bot.db import search
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -163,7 +165,7 @@ class DirectCommands(commands.Cog):
         page: int = commands.Parameter(
             name="page",
             displayed_name="Page Number",
-            description="The page number (15 games per page)",
+            description=f"The page number ({DEFAULT_PAGE_SIZE} games per page)",
             kind=inspect.Parameter.POSITIONAL_ONLY,
             default=1,
         ),
@@ -178,19 +180,20 @@ class DirectCommands(commands.Cog):
         session: Session = self.db_sessionmaker()
         member = Member.get(session, ctx.author.id, ctx.author.name)
 
-        per_page: int = 15
-
         games: List[GamePlatformCount] = search.get_paginated_games(
             session=session,
             page=page,
-            per_page=per_page,
+            per_page=DEFAULT_PAGE_SIZE,
             member_id=member.id,
             sort=SortOrder.TITLE,
         )
 
         total: int = search.count_games(session=session, member_id=member.id)
 
-        msg: Embed = util.embed(get_page_header_text(page, total, per_page) )
-        util.add_games_to_message(msg, games)
+        msg: Embed = util.build_page_message(
+            title="Your Keys",
+            text=get_page_header_text(page, total, DEFAULT_PAGE_SIZE),
+            games=games,
+        )
 
         await send_with_retry(ctx=ctx, msg=msg)

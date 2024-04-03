@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from typing import List, Dict, Tuple
 
 from discord_key_bot.common import util
+from discord_key_bot.common.constants import DEFAULT_PAGE_SIZE
 from discord_key_bot.db import search
 from discord_key_bot.db.models import Member, Key, Game
 from discord_key_bot.db.queries import SortOrder
@@ -47,18 +48,21 @@ class GuildCommands(commands.Cog):
     ) -> None:
         """Search available games"""
 
-        msg = util.embed("Top 15 search results...", title="Search Results")
-
         session: Session = self.db_session_maker()
 
         games: List[GamePlatformCount] = search.get_paginated_games(
             session=session,
             title=game_name,
             guild_id=ctx.guild.id,
-            per_page=15,
+            per_page=DEFAULT_PAGE_SIZE,
             sort=SortOrder.TITLE,
         )
-        util.add_games_to_message(msg, games)
+
+        msg = util.build_page_message(
+            title="Search Results",
+            text=f"Top {DEFAULT_PAGE_SIZE} search results...",
+            games=games
+        )
 
         await send_with_retry(ctx=ctx, msg=msg)
 
@@ -90,7 +94,7 @@ class GuildCommands(commands.Cog):
         page: int = commands.Parameter(
             name="page",
             displayed_name="Page Number",
-            description="The page number to display (15 games per page)",
+            description=f"The page number to display ({DEFAULT_PAGE_SIZE} games per page)",
             kind=inspect.Parameter.POSITIONAL_ONLY,
             default=1,
         ),
@@ -112,13 +116,11 @@ class GuildCommands(commands.Cog):
 
         session: Session = self.db_session_maker()
 
-        per_page = 20
-
         games: List[GamePlatformCount] = search.get_paginated_games(
             session=session,
             platform=platform_lower,
             guild_id=ctx.guild.id,
-            per_page=per_page,
+            per_page=DEFAULT_PAGE_SIZE,
             page=page,
             sort=SortOrder.TITLE,
         )
@@ -128,7 +130,7 @@ class GuildCommands(commands.Cog):
         )
 
         msg = util.embed(
-            get_page_header_text(page, total, per_page),
+            get_page_header_text(page, total, DEFAULT_PAGE_SIZE),
             title=f"Browse Games available for {pretty_platform(platform)}",
         )
 
@@ -145,7 +147,7 @@ class GuildCommands(commands.Cog):
         page: int = commands.Parameter(
             name="page",
             displayed_name="Page Number",
-            description="The page number (15 games per page)",
+            description="The page number ({DEFAULT_PAGE_SIZE} per page)",
             kind=inspect.Parameter.POSITIONAL_ONLY,
             default=1,
         ),
@@ -154,26 +156,24 @@ class GuildCommands(commands.Cog):
 
         session: Session = self.db_session_maker()
 
-        per_page: int = 20
-
         games: List[GamePlatformCount] = search.get_paginated_games(
             session=session,
             guild_id=ctx.guild.id,
             page=page,
-            per_page=per_page,
+            per_page=DEFAULT_PAGE_SIZE,
             sort=SortOrder.TITLE,
         )
 
         total: int = search.count_games(session=session, guild_id=ctx.guild.id)
 
-        msg: Embed = util.embed(
-            get_page_header_text(page, total, per_page), title="Browse Games"
+        msg: Embed = util.build_page_message(
+            title="Browse Games",
+            text=get_page_header_text(page, total, DEFAULT_PAGE_SIZE),
+            games=games,
         )
-        util.add_games_to_message(msg, games)
 
         await send_with_retry(ctx=ctx, msg=msg)
 
-    # TODO: this is not DRY at all
     @commands.command()
     async def latest(
         self,
@@ -181,7 +181,7 @@ class GuildCommands(commands.Cog):
         page: int = commands.Parameter(
             name="page",
             displayed_name="Page Number",
-            description="The page number (15 games per page)",
+            description=f"The page number ({DEFAULT_PAGE_SIZE} games per page)",
             kind=inspect.Parameter.POSITIONAL_ONLY,
             default=1,
         ),
@@ -190,22 +190,21 @@ class GuildCommands(commands.Cog):
 
         session: Session = self.db_session_maker()
 
-        per_page: int = 20
-
         games: List[GamePlatformCount] = search.get_paginated_games(
             session=session,
             guild_id=ctx.guild.id,
             page=page,
-            per_page=per_page,
+            per_page=DEFAULT_PAGE_SIZE,
             sort=SortOrder.LATEST,
         )
 
         total: int = search.count_games(session=session, guild_id=ctx.guild.id)
 
-        msg: Embed = util.embed(
-            get_page_header_text(page, total, per_page), title="Latest Games"
+        msg: Embed = util.build_page_message(
+            title="Latest Games",
+            text=get_page_header_text(page, total, DEFAULT_PAGE_SIZE),
+            games=games,
         )
-        util.add_games_to_message(msg, games)
 
         await send_with_retry(ctx=ctx, msg=msg)
 
@@ -215,12 +214,10 @@ class GuildCommands(commands.Cog):
 
         session: Session = self.db_session_maker()
 
-        per_page: int = 20
-
         games: List[GamePlatformCount] = search.get_paginated_games(
             session=session,
             guild_id=ctx.guild.id,
-            per_page=per_page,
+            per_page=DEFAULT_PAGE_SIZE,
             sort=SortOrder.RANDOM,
         )
 

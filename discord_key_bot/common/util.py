@@ -34,9 +34,15 @@ def embed(
     return discord.Embed(title=title, type="rich", description=text, color=colour)
 
 
-def add_games_to_message(msg: discord.Embed, games: List[GamePlatformCount]) -> None:
+def build_page_message(title: str, text: str, games: List[GamePlatformCount]) -> discord.Embed:
+    if not games:
+        return embed(text="No matching games found.", title=title)
+
+    msg: discord.Embed = embed(title=title, text=text)
     for game in games:
         msg.add_field(name=game.name, value=game.platforms_string())
+
+    return msg
 
 
 def get_search_name(title: str) -> str:
