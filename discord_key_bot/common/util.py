@@ -5,11 +5,14 @@ from typing import List, Tuple
 
 import discord
 from discord.ext import commands
+from loguru import logger
 
 from discord_key_bot.common.colours import Colours
 from discord_key_bot.platform import Platform
 
 RETRIES: int = 3
+
+log = logger.bind(name="search")
 
 
 class PlatformCount(typing.NamedTuple):
@@ -60,9 +63,12 @@ async def send_with_retry(
                 await ctx.send(embed=msg)
             return
         except Exception as e:
+            log.exception("Encountered an error sending a message.")
             if tries:
+                log.error("Retrying...")
                 tries -= 1
             else:
+                log.error("Retries exhausted.")
                 raise e
 
 

@@ -4,6 +4,7 @@ from typing import Dict, List
 from discord import Embed
 from discord.ext import commands
 from discord.ext.commands import Bot
+from loguru import logger
 
 from discord_key_bot.common.constants import DEFAULT_PAGE_SIZE
 from discord_key_bot.db import search
@@ -21,6 +22,8 @@ from discord_key_bot.platform import (
 )
 from discord_key_bot.common.colours import Colours
 
+
+log: logger = logger.bind(name="direct")
 
 class DirectCommands(commands.Cog):
     """Run these commands in private messages to the bot"""
@@ -47,6 +50,8 @@ class DirectCommands(commands.Cog):
         ),
     ) -> None:
         """Add a key"""
+        log.debug(f"Received 'add' request: author_id={ctx.author.id}, game_name={game_name}")
+
         session: Session = self.db_sessionmaker()
 
         game: Game = Game.get(session, game_name)
@@ -54,6 +59,8 @@ class DirectCommands(commands.Cog):
         try:
             platform: Platform = infer_platform(key)
         except PlatformNotFound:
+            log.debug(f"Invalid key author_id={ctx.author.id}, game_name={game_name}")
+
             await send_with_retry(
                 ctx=ctx,
                 msg=util.embed("Unrecognized key format!", Colours.RED),
@@ -61,6 +68,8 @@ class DirectCommands(commands.Cog):
             return
 
         if ctx.guild:
+            log.debug(f"'add' request made in channel author_id={ctx.author.id}, game_name={game_name}")
+
             try:
                 await ctx.message.delete()
             except Exception:
@@ -95,6 +104,8 @@ class DirectCommands(commands.Cog):
             )
         )
 
+        log.debug(f"Successfully added key author_id={ctx.author.id}, game_name={game_name}")
+
     @commands.command()
     async def remove(
         self,
@@ -114,6 +125,8 @@ class DirectCommands(commands.Cog):
         ),
     ) -> None:
         """Remove a key and send to you in a PM"""
+
+        log.debug(f"Received 'remove' request author_id={ctx.author.id}, platform={platform}, game_name={game_name}")
 
         platform_lower: str = platform.lower()
 
@@ -136,6 +149,8 @@ class DirectCommands(commands.Cog):
             session, member, platform, game_name
         )
         if not game_keys:
+            log.debug(f"Game not found. author_id={ctx.author.id}, platform={platform}, game_name={game_name}")
+
             await send_with_retry(ctx=ctx, msg=util.embed("Game not found"))
             return
 
@@ -158,6 +173,8 @@ class DirectCommands(commands.Cog):
 
         await ctx.author.send(embed=msg)
 
+        log.debug(f"Successfully removed key author_id={ctx.author.id}, platform={platform}, game_name={game_name}")
+
     @commands.command()
     async def mykeys(
         self,
@@ -171,6 +188,8 @@ class DirectCommands(commands.Cog):
         ),
     ) -> None:
         """Browse your own keys"""
+        log.debug(f"Received 'mykeys' request. author_id={ctx.author.id}")
+
         if ctx.guild:
             await ctx.author.send(
                 embed=util.embed(f"This command needs to be sent in a direct message")

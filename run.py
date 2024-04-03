@@ -1,5 +1,7 @@
 import asyncio
 
+from loguru import logger
+
 import discord_key_bot.bot
 import os
 
@@ -7,8 +9,11 @@ from datetime import timedelta
 from dotenv import load_dotenv
 from discord_key_bot.db import session_maker
 
+log: logger = logger.bind(name="run")
 
 async def main():
+    log.info("Starting bot.")
+
     load_dotenv()
 
     COMMAND_PREFIX: str = os.environ.get("BANG", "!")

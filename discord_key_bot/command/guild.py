@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from discord import Embed
 from discord.ext import commands
 from discord.ext.commands import Bot
+from loguru import logger
 from sqlalchemy.orm import Session, sessionmaker
 from typing import List, Dict, Tuple
 
@@ -16,6 +17,8 @@ from discord_key_bot.platform import all_platforms, pretty_platform
 from discord_key_bot.common.util import GamePlatformCount, send_with_retry, get_page_header_text
 from discord_key_bot.common.colours import Colours
 
+
+log: logger = logger.bind(name='guild')
 
 class GuildCommands(commands.Cog):
     def __init__(
@@ -48,6 +51,8 @@ class GuildCommands(commands.Cog):
     ) -> None:
         """Search available games"""
 
+        log.debug(f"Received 'search' request: author_id={ctx.author.id}, game_name={game_name}")
+
         session: Session = self.db_session_maker()
 
         games: List[GamePlatformCount] = search.get_paginated_games(
@@ -69,6 +74,8 @@ class GuildCommands(commands.Cog):
     @commands.command()
     async def platforms(self, ctx: commands.Context) -> None:
         """Shows valid platforms"""
+
+        log.debug(f"Received 'platforms' request: author_id={ctx.author.id}")
 
         msg: Embed = util.embed(
             f"Showing valid platforms and example key formats", title="Platforms"
@@ -100,6 +107,8 @@ class GuildCommands(commands.Cog):
         ),
     ) -> None:
         """Lists available games for the specified platform"""
+
+        log.debug(f"Received 'platform' request: author_id={ctx.author.id}, platform={platform}, page={page}")
 
         platform_lower = platform.lower()
 
@@ -154,6 +163,8 @@ class GuildCommands(commands.Cog):
     ) -> None:
         """Browse through available games"""
 
+        log.debug(f"Received 'browse' request: author_id={ctx.author.id}, page={page}")
+
         session: Session = self.db_session_maker()
 
         games: List[GamePlatformCount] = search.get_paginated_games(
@@ -188,6 +199,8 @@ class GuildCommands(commands.Cog):
     ) -> None:
         """Browse through available games by date added in descending order"""
 
+        log.debug(f"Received 'latest' request: author_id={ctx.author.id}, page={page}")
+
         session: Session = self.db_session_maker()
 
         games: List[GamePlatformCount] = search.get_paginated_games(
@@ -211,6 +224,8 @@ class GuildCommands(commands.Cog):
     @commands.command()
     async def random(self, ctx: commands.Context) -> None:
         """Display 20 random available games"""
+
+        log.debug(f"Received 'random' request: author_id={ctx.author.id}")
 
         session: Session = self.db_session_maker()
 
@@ -238,6 +253,8 @@ class GuildCommands(commands.Cog):
         """Share your keys with this guild"""
         session: Session = self.db_session_maker()
 
+        log.debug(f"Received 'share' request: author_id={ctx.author.id}")
+
         member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
         if ctx.guild.id in member.guilds:
@@ -262,6 +279,9 @@ class GuildCommands(commands.Cog):
     @commands.command()
     async def unshare(self, ctx: commands.Context) -> None:
         """Remove this guild from the guilds you share keys with"""
+
+        log.debug(f"Received 'unshare' request: author_id={ctx.author.id}")
+
         session: Session = self.db_session_maker()
         member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
@@ -304,11 +324,16 @@ class GuildCommands(commands.Cog):
         ),
     ) -> None:
         """Claims a game from available keys"""
+
+        log.debug(f"Received 'claim' request: author_id={ctx.author.id}, game_name={game_name}")
+
         session: Session = self.db_session_maker()
 
         member: Member = Member.get(session, ctx.author.id, ctx.author.name)
         ready, timeleft = self._is_cooldown_elapsed(member.last_claim)
         if not ready:
+            log.debug(f"User cooldown has not elapsed: author_id={ctx.author.id}")
+
             await send_with_retry(
                 ctx=ctx,
                 msg=util.embed(
@@ -365,12 +390,13 @@ class GuildCommands(commands.Cog):
             ),
         )
 
-    def _is_cooldown_elapsed(self, timestamp: datetime) -> Tuple[bool, int]:
+        log.debug(f"Key claim successful: author_id={ctx.author.id}, game_name={game_name}")
+
+    def _is_cooldown_elapsed(self, timestamp: datetime) -> Tuple[bool, timedelta]:
         if timestamp:
             cooldown_elapsed: bool = datetime.utcnow() - timestamp > self.wait_time
-            # noinspection PyTypeChecker
-            time_remaining: int = timestamp + self.wait_time - datetime.utcnow()
+            time_remaining: timedelta = timestamp + self.wait_time - datetime.utcnow()
 
             return cooldown_elapsed, time_remaining
 
-        return True, 0
+        return True, timedelta()

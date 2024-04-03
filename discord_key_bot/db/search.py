@@ -2,6 +2,7 @@ import typing
 from collections import OrderedDict
 from itertools import groupby
 from typing import Dict, List
+from loguru import logger
 
 from sqlalchemy.ext.baked import Result
 from sqlalchemy.orm import Session
@@ -22,21 +23,28 @@ from discord_key_bot.db import queries
 from discord_key_bot.db.queries import SortOrder, paginated_queries
 from discord_key_bot.platform import all_platforms
 
+log: logger = logger.bind(name="search")
+
 
 def get_game_keys(
     session: Session, game_name: str, guild_id: int
 ) -> Dict[str, List[Key]]:
-    game: Game = (
-        session.query(Game)
-        .join(Key)
-        .filter(
-            Key.creator_id.in_(
-                session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id)
+
+    try:
+        game: Game = (
+            session.query(Game)
+            .join(Key)
+            .filter(
+                Key.creator_id.in_(
+                    session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id)
+                )
             )
+            .filter(Game.name == get_search_name(game_name))
+            .first()
         )
-        .filter(Game.name == get_search_name(game_name))
-        .first()
-    )
+    except Exception as e:
+        log.exception("Failed to query for paginated results")
+        raise e
 
     key_dict: Dict[str, List[Key]] = {}
 
@@ -52,16 +60,20 @@ def get_game_keys(
 def find_game_keys_for_user(
     session: Session, member: Member, platform: str, search_args: str
 ) -> Dict[str, List[Key]]:
-    game: Game = (
-        session.query(Game)
-        .join(Key)
-        .filter(
-            Game.name == search_args,
-            Key.platform == platform.lower(),
-            Key.creator_id == member.id,
+    try:
+        game: Game = (
+            session.query(Game)
+            .join(Key)
+            .filter(
+                Game.name == search_args,
+                Key.platform == platform.lower(),
+                Key.creator_id == member.id,
+            )
+            .first()
         )
-        .first()
-    )
+    except Exception as e:
+        log.exception("Failed to query user keys")
+        raise e
 
     game_dict: Dict[str, List[Key]] = {}
     if game:
@@ -89,17 +101,21 @@ def get_paginated_games(
 
     offset: int = (page - 1) * per_page
 
-    results: Result = session.execute(
-        query,
-        {
-            "guild_id": guild_id,
-            "offset": offset,
-            "per_page": per_page,
-            "member_id": member_id,
-            "platform": platform,
-            "search_args": get_search_name(title),
-        },
-    )
+    try:
+        results: Result = session.execute(
+            query,
+            {
+                "guild_id": guild_id,
+                "offset": offset,
+                "per_page": per_page,
+                "member_id": member_id,
+                "platform": platform,
+                "search_args": get_search_name(title),
+            },
+        )
+    except Exception as e:
+        log.exception("Failed to query for game keys")
+        raise e
 
     platform_game_dict: typing.OrderedDict[str, List[PlatformCount]] = OrderedDict()
 
@@ -124,13 +140,21 @@ def get_paginated_games(
 def count_games(
     session: Session, guild_id: int = 0, platform: str = "", member_id: int = 0
 ) -> int:
-    results: Result = session.execute(
-        queries.count_games,
-        {"guild_id": guild_id, "member_id": member_id, "platform": platform},
-    )
+    try:
+        results: Result = session.execute(
+            queries.count_games,
+            {"guild_id": guild_id, "member_id": member_id, "platform": platform},
+        )
+    except Exception as e:
+        log.exception("Failed to query for game count")
+        raise e
 
     return results.first()[0]
 
 
 def key_exists(session: Session, key: str) -> bool:
-    return bool(session.query(Key).filter(Key.key == key).count())
+    try:
+        return bool(session.query(Key).filter(Key.key == key).count())
+    except Exception as e:
+        log.exception("Failed to check if key exists")
+        raise e
