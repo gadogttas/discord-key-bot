@@ -4,12 +4,14 @@ from typing import Dict, List
 from discord import Embed
 from discord.ext import commands
 from discord.ext.commands import Bot
+
+from discord_key_bot.common.constants import DEFAULT_PAGE_SIZE
 from discord_key_bot.db import search
 from sqlalchemy.orm import sessionmaker, Session
 
 from discord_key_bot.common import util
 from discord_key_bot.db.models import Game, Key, Member
-from discord_key_bot.common.util import GamePlatformCount
+from discord_key_bot.common.util import GamePlatformCount, send_with_retry, get_page_header_text
 from discord_key_bot.db.queries import SortOrder
 from discord_key_bot.platform import (
     infer_platform,
@@ -47,16 +49,15 @@ class DirectCommands(commands.Cog):
         """Add a key"""
         session: Session = self.db_sessionmaker()
 
-        if not game_name:
-            await util.send_error_message(ctx, "No game name provided!")
-            return
-
         game: Game = Game.get(session, game_name)
 
         try:
             platform: Platform = infer_platform(key)
         except PlatformNotFound:
-            await ctx.send(embed=util.embed("Unrecognized key format!", Colours.RED))
+            await send_with_retry(
+                ctx=ctx,
+                msg=util.embed("Unrecognized key format!", Colours.RED),
+            )
             return
 
         if ctx.guild:
@@ -72,11 +73,9 @@ class DirectCommands(commands.Cog):
             )
 
         if search.key_exists(session, key):
-            await ctx.send(
-                embed=util.embed(
-                    f"Key already exists!",
-                    Colours.GOLD,
-                )
+            await send_with_retry(
+                ctx=ctx,
+                msg=util.embed(f"Key already exists!", Colours.GOLD),
             )
             return
 
@@ -119,15 +118,15 @@ class DirectCommands(commands.Cog):
         platform_lower: str = platform.lower()
 
         if platform_lower not in all_platforms.keys():
-            await ctx.send(
-                embed=util.embed(
+            await send_with_retry(
+                ctx=ctx,
+                msg=util.embed(
                     f'"{platform}" is not valid platform',
                     colour=Colours.RED,
                     title="Search Error",
-                )
+                ),
             )
             return
-
 
         session: Session = self.db_sessionmaker()
 
@@ -137,7 +136,7 @@ class DirectCommands(commands.Cog):
             session, member, platform, game_name
         )
         if not game_keys:
-            await ctx.send(embed=util.embed("Game not found"))
+            await send_with_retry(ctx=ctx, msg=util.embed("Game not found"))
             return
 
         key: Key = game_keys[platform_lower][0]
@@ -166,7 +165,7 @@ class DirectCommands(commands.Cog):
         page: int = commands.Parameter(
             name="page",
             displayed_name="Page Number",
-            description="The page number (15 games per page)",
+            description=f"The page number ({DEFAULT_PAGE_SIZE} games per page)",
             kind=inspect.Parameter.POSITIONAL_ONLY,
             default=1,
         ),
@@ -181,20 +180,20 @@ class DirectCommands(commands.Cog):
         session: Session = self.db_sessionmaker()
         member = Member.get(session, ctx.author.id, ctx.author.name)
 
-        per_page: int = 15
-
         games: List[GamePlatformCount] = search.get_paginated_games(
             session=session,
             page=page,
-            per_page=per_page,
+            per_page=DEFAULT_PAGE_SIZE,
             member_id=member.id,
-            sort=SortOrder.TITLE
+            sort=SortOrder.TITLE,
         )
 
         total: int = search.count_games(session=session, member_id=member.id)
-        first, last = util.get_page_bounds(page, per_page, total)
 
-        msg: Embed = util.embed(f"Showing {first} to {last} of {total}")
-        util.add_games_to_message(msg, games)
+        msg: Embed = util.build_page_message(
+            title="Your Keys",
+            text=get_page_header_text(page, total, DEFAULT_PAGE_SIZE),
+            games=games,
+        )
 
-        await ctx.send(embed=msg)
+        await send_with_retry(ctx=ctx, msg=msg)
