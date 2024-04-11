@@ -50,13 +50,13 @@ def get_game_keys(
 
 
 def find_game_keys_for_user(
-    session: Session, member: Member, platform: str, search_args: str
+    session: Session, member: Member, platform: str, game_name: str
 ) -> Dict[str, List[Key]]:
     game: Game = (
         session.query(Game)
         .join(Key)
         .filter(
-            Game.name == search_args,
+            Game.name == get_search_name(game_name),
             Key.platform == platform.lower(),
             Key.creator_id == member.id,
         )
