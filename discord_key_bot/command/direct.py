@@ -142,14 +142,14 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
 
         member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
-        game_keys: Dict[str, List[Key]] = search.find_game_keys_for_user(
+        game_keys: List[Key] = search.find_game_keys_for_user(
             session, member, platform, game_name
         )
         if not game_keys:
             await send_with_retry(ctx=ctx, msg=util.embed("Game not found"))
             return
 
-        key: Key = game_keys[platform_lower][0]
+        key: Key = game_keys[0]
         game: Game = key.game
 
         msg: Embed = util.embed(
