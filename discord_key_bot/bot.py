@@ -17,7 +17,8 @@ async def new(
 ) -> Bot:
     bot = commands.Bot(
         command_prefix=command_prefix,
-        intents=discord.Intents(messages=True, message_content=True),
+        intents=discord.Intents(messages=True, message_content=True, guilds=True),
+        help_command=commands.DefaultHelpCommand(dm_help=False),
     )
 
     @bot.event
