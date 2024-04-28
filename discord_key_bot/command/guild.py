@@ -22,17 +22,11 @@ class GuildCommands(commands.Cog):
         self,
         bot: Bot,
         db_session_maker: sessionmaker,
-        bot_channel_id: int,
         wait_time: timedelta,
     ):
         self.bot: Bot = bot
-        self.bot_channel_id: int = bot_channel_id
         self.wait_time: timedelta = wait_time
         self.db_session_maker: sessionmaker = db_session_maker
-
-    async def cog_before_invoke(self, ctx: commands.Context) -> None:
-        if self.bot_channel_id and ctx.channel.id != self.bot_channel_id:
-            raise commands.CommandError("wrong channel")
 
     @commands.command()
     async def search(
