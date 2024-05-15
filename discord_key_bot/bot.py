@@ -17,13 +17,12 @@ async def new(
 ) -> Bot:
     bot = commands.Bot(
         command_prefix=command_prefix,
-        intents=discord.Intents(messages=True, message_content=True),
+        intents=discord.Intents(messages=True, message_content=True, guilds=True),
+        help_command=commands.DefaultHelpCommand(dm_help=False),
     )
 
     @bot.event
     async def on_command_error(ctx: commands.Context, error: CommandError):
-        if bot_channel_id and ctx.channel.id != bot_channel_id:
-            return  # We don't care about the wrong commands in other channels
         if isinstance(error, commands.CommandNotFound):
             await send_with_retry(
                 ctx=ctx,
@@ -35,8 +34,12 @@ async def new(
                 msg=f"**Please pass in all requirements. Use** `{command_prefix}help {ctx.invoked_with}` **to see requirements.**",
             )
 
+    @bot.check
+    async def restrict_to_channel(ctx: commands.Context) -> bool:
+        return not bool(ctx.guild) or ctx.channel.id == bot_channel_id
+
     await bot.add_cog(
-        guild.GuildCommands(bot, db_session_maker, bot_channel_id, wait_time)
+        guild.GuildCommands(bot, db_session_maker, wait_time)
     )
     await bot.add_cog(direct.DirectCommands(bot, db_session_maker))
 
