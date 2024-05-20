@@ -23,6 +23,9 @@ async def new(
 
     @bot.event
     async def on_command_error(ctx: commands.Context, error: CommandError):
+        if not await is_bot_channel(ctx):
+            return
+
         if isinstance(error, commands.CommandNotFound):
             await send_with_retry(
                 ctx=ctx,
@@ -35,7 +38,7 @@ async def new(
             )
 
     @bot.check
-    async def restrict_to_channel(ctx: commands.Context) -> bool:
+    async def is_bot_channel(ctx: commands.Context) -> bool:
         return not bool(ctx.guild) or ctx.channel.id == bot_channel_id
 
     await bot.add_cog(
