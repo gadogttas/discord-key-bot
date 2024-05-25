@@ -306,7 +306,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             await send_with_retry(
                 ctx=ctx,
                 msg=util.embed(
-                    f"You must wait {timeleft} until your next claim",
+                    f"You must wait {util.pretty_timedelta(timeleft)} until your next claim",
                     colour=Colours.RED,
                     title="Failed to claim",
                 ),
