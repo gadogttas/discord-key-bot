@@ -301,8 +301,8 @@ class GuildCommands(commands.Cog):
         session: Session = self.db_session_maker()
 
         member: Member = Member.get(session, ctx.author.id, ctx.author.name)
-        ready, timeleft = self._is_cooldown_elapsed(member.last_claim)
-        if not ready:
+        timeleft = self._get_cooldown(member)
+        if timeleft.total_seconds() > 0:
             await send_with_retry(
                 ctx=ctx,
                 msg=util.embed(
@@ -359,12 +359,10 @@ class GuildCommands(commands.Cog):
             ),
         )
 
-    def _is_cooldown_elapsed(self, timestamp: datetime) -> Tuple[bool, int]:
-        if timestamp:
-            cooldown_elapsed: bool = datetime.utcnow() - timestamp > self.wait_time
-            # noinspection PyTypeChecker
-            time_remaining: int = timestamp + self.wait_time - datetime.utcnow()
+    def _get_cooldown(self, member: Member) -> timedelta:
+        last_claim: datetime = member.last_claim
 
-            return cooldown_elapsed, time_remaining
+        if last_claim:
+            return last_claim + self.wait_time - datetime.utcnow()
 
-        return True, 0
+        return timedelta(0)
