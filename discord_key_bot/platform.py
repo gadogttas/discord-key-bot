@@ -2,12 +2,6 @@ import re
 from typing import List, Dict
 
 
-class PlatformNotFound(Exception):
-    """Exception to be raised when a key platform cannot be inferred"""
-
-    pass
-
-
 class Platform(object):
     """Class representing a platform"""
 
@@ -44,8 +38,9 @@ steam: Platform = Platform(
     key_regexes=[
         r"^[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}$",
         r"^[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}$",
+        r"^[a-zA-Z0-9]{25}$",
     ],
-    example_keys=["AAAAA-BBBBB-CCCCC", "AAAAA-BBBBB-CCCCC-DDDDD-EEEEE"],
+    example_keys=["AAAAA-BBBBB-CCCCC", "AAAAA-BBBBB-CCCCC-DDDDD-EEEEE", "ABCDEABCDEABCDEABCDEABCDE (25 chars)"],
 )
 
 playstation: Platform = Platform(
@@ -77,6 +72,12 @@ xbox: Platform = Platform(
     example_keys=["ABCDEABCDEABCDEABCDEABCDE (25 chars)"],
 )
 
+windows: Platform = Platform(
+    name="Windows",
+    key_regexes=[r"^[a-zA-Z0-9]{25}$"],
+    example_keys=["ABCDEABCDEABCDEABCDEABCDE (25 chars)"],
+)
+
 switch: Platform = Platform(
     name="Switch",
     key_regexes=[r"^[a-zA-Z0-9]{16}$"],
@@ -93,17 +94,8 @@ all_platforms: Dict[str, Platform] = {
     uplay.search_name: uplay,
     xbox.search_name: xbox,
     switch.search_name: switch,
+    windows.search_name: windows,
 }
-
-
-def infer_platform(key: str) -> Platform:
-    """Guess the platform"""
-
-    for platform in all_platforms.values():
-        if platform.is_valid_key(key):
-            return platform
-
-    raise PlatformNotFound
 
 
 def pretty_platform(platform: str) -> str:

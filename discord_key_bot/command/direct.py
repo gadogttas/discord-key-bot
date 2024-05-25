@@ -14,8 +14,6 @@ from discord_key_bot.db.models import Game, Key, Member
 from discord_key_bot.common.util import GamePlatformCount, send_with_retry, get_page_header_text
 from discord_key_bot.db.queries import SortOrder
 from discord_key_bot.platform import (
-    infer_platform,
-    PlatformNotFound,
     all_platforms,
     Platform,
 )
@@ -33,8 +31,15 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
     async def add(
         self,
         ctx: commands.Context,
+        platform_name: str = commands.Parameter(
+            name="platform_name",
+            displayed_name="Platform Name",
+            description=f"The platform this key is for",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+        ),
         key: str = commands.Parameter(
             name="key",
+            displayed_name="Key",
             description="The key you wish to add",
             kind=inspect.Parameter.POSITIONAL_ONLY,
         ),
@@ -51,15 +56,6 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
 
         game: Game = Game.get(session, game_name)
 
-        try:
-            platform: Platform = infer_platform(key)
-        except PlatformNotFound:
-            await send_with_retry(
-                ctx=ctx,
-                msg=util.embed("Unrecognized key format!", Colours.RED),
-            )
-            return
-
         if ctx.guild:
             try:
                 await ctx.message.delete()
@@ -71,6 +67,20 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
                     colour=Colours.LUMINOUS_VIVID_PINK,
                 )
             )
+
+        try:
+            platform: Platform = all_platforms[platform_name.lower()]
+        except KeyError:
+            await ctx.author.send(
+                embed=util.embed("Invalid platform name.", Colours.RED),
+            )
+            return
+
+        if not platform.is_valid_key(key):
+            await ctx.author.send(
+                embed=util.embed("This key is not valid for this platform.", Colours.RED),
+            )
+            return
 
         if search.key_exists(session, key):
             await send_with_retry(

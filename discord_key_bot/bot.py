@@ -6,7 +6,7 @@ from discord.ext.commands import Bot, CommandError
 from sqlalchemy.orm import sessionmaker
 
 from discord_key_bot.command import guild, direct
-from discord_key_bot.common.util import send_with_retry
+from discord_key_bot.common import util
 
 
 async def new(
@@ -26,16 +26,29 @@ async def new(
         if not await is_bot_channel(ctx):
             return
 
+        message: str
         if isinstance(error, commands.CommandNotFound):
-            await send_with_retry(
-                ctx=ctx,
-                msg=f"**Invalid command. Try using** `{command_prefix}help` **to figure out commands.**",
+            message = f"**Invalid command. Try using** `{command_prefix}help` **to figure out commands.**"
+        elif isinstance(error, commands.MissingRequiredArgument):
+            message = f"**Please pass in all requirements. Use** `{command_prefix}help {ctx.invoked_with}` **to see requirements.**"
+        else:
+            return
+
+        if isinstance(ctx.cog, direct.DirectCommands):
+            if bool(ctx.guild):
+                await ctx.message.delete()
+
+            await ctx.author.send(
+                embed=util.embed(
+                    message
+                )
             )
-        if isinstance(error, commands.MissingRequiredArgument):
-            await send_with_retry(
-                ctx=ctx,
-                msg=f"**Please pass in all requirements. Use** `{command_prefix}help {ctx.invoked_with}` **to see requirements.**",
-            )
+            return
+
+        await util.send_with_retry(
+            ctx=ctx,
+            msg=message,
+        )
 
     @bot.check
     async def is_bot_channel(ctx: commands.Context) -> bool:
