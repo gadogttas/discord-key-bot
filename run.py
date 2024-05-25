@@ -11,20 +11,20 @@ from discord_key_bot.db import session_maker
 async def main():
     load_dotenv()
 
-    COMMAND_PREFIX: str = os.environ.get("BANG", "!")
-    WAIT_TIME: timedelta = timedelta(seconds=int(os.environ.get("WAIT_TIME", 86400)))
-    BOT_CHANNEL_ID: int = int(os.environ.get("BOT_CHANNEL_ID"))
-    SQLALCHEMY_URI: str = os.environ.get("SQLALCHEMY_URI", "sqlite:///:memory:")
-    TOKEN: str = os.environ["TOKEN"]
+    command_prefix: str = os.environ.get("BANG", "!")
+    wait_time: timedelta = timedelta(seconds=int(os.environ.get("WAIT_TIME", 86400)))
+    bot_channel_id: int = int(os.environ.get("BOT_CHANNEL_ID"))
+    sqlalchemy_uri: str = os.environ.get("SQLALCHEMY_URI", "sqlite:///:memory:")
+    token: str = os.environ["TOKEN"]
 
     bot = await discord_key_bot.bot.new(
-        db_session_maker=session_maker.new(SQLALCHEMY_URI),
-        bot_channel_id=BOT_CHANNEL_ID,
-        wait_time=WAIT_TIME,
-        command_prefix=COMMAND_PREFIX,
+        db_session_maker=session_maker.new(sqlalchemy_uri),
+        bot_channel_id=bot_channel_id,
+        wait_time=wait_time,
+        command_prefix=command_prefix,
     )
 
-    await bot.start(TOKEN)
+    await bot.start(token)
 
 
 asyncio.run(main())

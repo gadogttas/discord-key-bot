@@ -1,3 +1,4 @@
+import datetime
 import re
 import typing
 from math import ceil
@@ -70,3 +71,24 @@ def get_page_header_text(page: int, total: int, per_page: int) -> str:
     pages: int = ceil(total / per_page)
 
     return f"Showing page {page} of {pages} ({total} games)"
+
+
+def pretty_timedelta(delta: datetime.timedelta) -> str:
+    days: int
+    hours: int
+    minutes: int
+    seconds: int
+
+    seconds: int = int(delta.total_seconds())
+    days, seconds = divmod(seconds, 86400)
+    hours, seconds = divmod(seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
+    
+    if days > 0:
+        return f'{days} days {hours} hours {minutes} minutes and {seconds} seconds'
+    elif hours > 0:
+        return f'{hours} hours {minutes} minutes and {seconds} seconds'
+    elif minutes > 0:
+        return f'{minutes} minutes and {seconds} seconds'
+    else:
+        return f'{seconds} seconds'
