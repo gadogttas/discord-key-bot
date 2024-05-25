@@ -17,7 +17,7 @@ from discord_key_bot.common.util import GamePlatformCount, send_with_retry, get_
 from discord_key_bot.common.colours import Colours
 
 
-class GuildCommands(commands.Cog):
+class GuildCommands(commands.Cog, name='Channel Commands'):
     def __init__(
         self,
         bot: Bot,

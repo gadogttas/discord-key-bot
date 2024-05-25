@@ -22,7 +22,7 @@ from discord_key_bot.platform import (
 from discord_key_bot.common.colours import Colours
 
 
-class DirectCommands(commands.Cog):
+class DirectCommands(commands.Cog, name='Direct Message Commands'):
     """Run these commands in private messages to the bot"""
 
     def __init__(self, bot: Bot, db_session_maker: sessionmaker):
