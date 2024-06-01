@@ -5,7 +5,7 @@ from discord import Embed
 from discord.ext import commands
 from discord.ext.commands import Bot
 from sqlalchemy.orm import Session, sessionmaker
-from typing import List, Dict, Tuple
+from typing import List, Dict
 
 from discord_key_bot.common import util
 from discord_key_bot.common.constants import DEFAULT_PAGE_SIZE

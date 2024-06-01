@@ -3,6 +3,7 @@ from collections import OrderedDict
 from itertools import groupby
 from typing import Dict, List
 
+from sqlalchemy import text
 from sqlalchemy.ext.baked import Result
 from sqlalchemy.orm import Session
 
@@ -26,7 +27,7 @@ from discord_key_bot.platform import all_platforms
 def get_game_keys(
     session: Session, game_name: str, guild_id: int
 ) -> Dict[str, List[Key]]:
-    game: Game = (
+    game: typing.Optional[Game] = (
         session.query(Game)
         .join(Key)
         .filter(
@@ -51,8 +52,8 @@ def get_game_keys(
 
 def find_game_keys_for_user(
     session: Session, member: Member, platform: str, game_name: str
-) -> Dict[str, List[Key]]:
-    game: Game = (
+) -> List[Key]:
+    game: typing.Optional[Game] = (
         session.query(Game)
         .join(Key)
         .filter(
@@ -63,14 +64,9 @@ def find_game_keys_for_user(
         .first()
     )
 
-    game_dict: Dict[str, List[Key]] = {}
-    if game:
-        game_dict = {
-            platform: list(keys)
-            for platform, keys in groupby(game.keys, lambda x: x.platform)
-        }
+    keys: List[Key] = game.keys if game else []
 
-    return game_dict
+    return keys
 
 
 def get_paginated_games(
@@ -90,7 +86,7 @@ def get_paginated_games(
     offset: int = (page - 1) * per_page
 
     results: Result = session.execute(
-        query,
+        text(query),
         {
             "guild_id": guild_id,
             "offset": offset,
@@ -101,8 +97,8 @@ def get_paginated_games(
         },
     )
 
+    # group platform key counts by game while preserving sort order
     platform_game_dict: typing.OrderedDict[str, List[PlatformCount]] = OrderedDict()
-
     for game_name, platform_name, key_count in results:
         platform_count: PlatformCount = PlatformCount(
             all_platforms[platform_name], key_count
@@ -113,6 +109,7 @@ def get_paginated_games(
         else:
             platform_game_dict[game_name] = [platform_count]
 
+    # turn the OrderedDict into something easier to work with
     platform_games: List[GamePlatformCount] = [
         GamePlatformCount(game, platforms)
         for game, platforms in platform_game_dict.items()
@@ -125,7 +122,7 @@ def count_games(
     session: Session, guild_id: int = 0, platform: str = "", member_id: int = 0
 ) -> int:
     results: Result = session.execute(
-        queries.count_games,
+        text(queries.count_games),
         {"guild_id": guild_id, "member_id": member_id, "platform": platform},
     )
 
