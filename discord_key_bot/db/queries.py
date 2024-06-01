@@ -25,13 +25,14 @@ WITH platform_games AS (
         (:member_id = 0 OR members.id = :member_id)
         AND (:platform = '' OR keys.platform = :platform)
         AND (:search_args = '' OR games.name LIKE '%' || :search_args || '%')
-        AND EXISTS (
-            SELECT 1
-            FROM guilds 
-            WHERE 
-                members.id = guilds.member_id 
-                AND (:guild_id = 0 OR guilds.guild_id = :guild_id)
-        )
+        AND ( 
+            :guild_id = 0 
+            OR EXISTS (
+                SELECT 1
+                FROM guilds 
+                WHERE 
+                    members.id = guilds.member_id 
+                    AND guilds.guild_id = :guild_id))
     GROUP BY 
         games.id, keys.platform
 ),
@@ -79,12 +80,17 @@ count_games: str = """
             keys 
             JOIN members
                 ON members.id = keys.creator_id
-            JOIN guilds 
-                ON members.id = guilds.member_id 
         WHERE 
             keys.game_id = games.id
             AND (:member_id = 0 OR members.id = :member_id)
             AND (:platform = '' OR keys.platform = :platform)
-            AND (:guild_id = 0 OR guilds.guild_id = :guild_id)
+            AND (
+                :guild_id = 0 
+                OR EXISTS (
+                    SELECT 1
+                    FROM guilds
+                    WHERE 
+                        members.id = guilds.member_id 
+                        AND guilds.guild_id = :guild_id))
     )
 """
