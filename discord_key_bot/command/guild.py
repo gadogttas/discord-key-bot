@@ -332,7 +332,12 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             await send_with_retry(ctx=ctx, msg=util.embed("Game not found"))
             return
 
-        key: Key = game_keys[platform_lower][0]
+        try:
+            key: Key = game_keys[platform_lower][0]
+        except KeyError:
+            await send_with_retry(ctx=ctx, msg=util.embed("No keys found for the specified platform"))
+            return
+
         game: Game = key.game
 
         msg: Embed = util.embed(
