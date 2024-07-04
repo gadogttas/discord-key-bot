@@ -54,9 +54,10 @@ async def new(
     async def is_bot_channel(ctx: commands.Context) -> bool:
         return not bool(ctx.guild) or ctx.channel.id == bot_channel_id
 
-    await bot.add_cog(
-        guild.GuildCommands(bot, db_session_maker, wait_time)
-    )
+    # register cogs
+    await bot.add_cog(guild.GuildCommands(bot, db_session_maker, wait_time))
     await bot.add_cog(direct.DirectCommands(bot, db_session_maker))
+
+    discord.utils.setup_logging()
 
     return bot
