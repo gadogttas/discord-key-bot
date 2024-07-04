@@ -1,5 +1,3 @@
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-
 # discord-key-bot
 
 Simple multi guild bot for giving away product keys to guild members. Any keys added sent to the bot will only be made available on guilds/servers you send the `!share` command.
@@ -7,18 +5,22 @@ Simple multi guild bot for giving away product keys to guild members. Any keys a
 # Usage
 
 ```
-DirectCommands:
-  add     Add a key or url
-  mykeys  Browse your own keys
-  remove  Remove a key or url and send to you in a PM
-GuildCommands:
-  browse  Browse through available games
-  claim   Claims a game from available keys
-  search  Searches available games
-  share   Add this guild the guilds you share keys with
-  unshare Remove this guild from the guilds you share keys with
-​No Category:
-  help    Shows this message
+Channel Commands:
+  browse    Browse through available games
+  claim     Claims a game from available keys
+  latest    Browse through available games by date added in descending order
+  platform  Lists available games for the specified platform
+  platforms Shows valid platforms
+  random    Display 20 random available games
+  search    Search available games
+  share     Share your keys with this guild
+  unshare   Remove this guild from the guilds you share keys with
+Direct Message Commands:
+  add       Add a key
+  mykeys    Browse your own keys
+  remove    Remove a key and send to you in a PM
+No Category:
+  help      Shows this message
 
 Type !help command for more info on a command.
 You can also type !help category for more info on a category.
@@ -26,7 +28,7 @@ You can also type !help category for more info on a category.
 
 ## Direct Commands
 
-### `!add <key> [game_name...]`
+### `!add <platform> <key> [game_name...]`
 
 Adds a game key to your collection. (Do this in a private message)
 
@@ -36,7 +38,9 @@ The bot currently supports key parsing for:
 - playstation
 - origin
 - uplay
-- url (Such as humble gift links)
+- xbox
+- switch
+- windows
 
 ### `!mykeys [page=1]`
 
@@ -46,13 +50,16 @@ Browse your own keys
 
 Remove a key or url and send to you in a PM (Do this in a private message)
 
-The bot currently supports key parsing for:
+The bot currently supports keys for:
 - gog
 - steam
 - playstation
 - origin
 - uplay
-- url (Such as humble gift links)
+- xbox
+- switch
+- windows
+
 
 ## Guild Commands
 
@@ -76,6 +83,10 @@ If you are claiming a key that you provided then the `WAIT_TIME` will not be app
 
 Searches available games. Can be used to test claims, so you don't accidentally claim the wrong game.
 
+### `!latest`
+
+ Browse through available games by date added in descending order.
+
 ### `![un]share`
 
 Adds or removes this guild the guilds you share keys with. Must be run inside a guild.
@@ -95,6 +106,7 @@ https://discordpy.readthedocs.io/en/latest/discord.html
 Minimum permissions required are:
 - Send Messages
 - Manage Messages
+- Guilds
 
 ## Usage
 
@@ -105,6 +117,7 @@ Two environment variables are required.
 ```shell
 TOKEN=<discord bot token> # Required
 SQLALCHEMY_URI=<uri for database> # Will default to "sqlite:///:memory:" meaning all data will be lost on restart
+BOT_CHANNEL_ID=<channel for the bot to listen in>
 
 #Optional defaults
 BANG=! # Bot command
@@ -127,7 +140,7 @@ python run.py
 Run this bot in a docker container with the following command
 
 ```shell
-docker run -e TOKEN=<YOUR DISCORD TOKEN> -e SQLALCHEMY_URI=<DB URI> bayangan/discord-key-bot
+docker run -e TOKEN=<YOUR DISCORD TOKEN> -e SQLALCHEMY_URI=<DB URI> bayangan/discord-key-bot -e BOT_CHANNEL_ID=<bot channel id>
 ```
 
 Or using docker compose. Application runs out of the `/app` folder
@@ -147,10 +160,6 @@ services:
       WAIT_TIME: 7200 # In seconds
       SQLALCHEMY_URI: "sqlite:///data/keybot.sqlite"
 ```
-
-## Contributing
-
-All pull requests are welcome. Any python must be black-ified. Pulls request will be declined unless black has formatted it.
 
 ## Licence
 
