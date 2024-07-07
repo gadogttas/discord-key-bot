@@ -1,5 +1,5 @@
 import inspect
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 from discord import Embed
 from discord.ext import commands
@@ -347,20 +347,19 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         msg.add_field(name=game.pretty_name, value=key.key)
 
         session.delete(key)
-        session.commit()
 
         if not game.keys:
             session.delete(game)
 
         if key.creator_id != member.id:
-            member.last_claim = datetime.utcnow()
+            member.last_claim = datetime.now(UTC)
         session.commit()
 
         await ctx.author.send(embed=msg)
         await send_with_retry(
             ctx=ctx,
             msg=util.embed(
-                f'"{game.pretty_name}" claimed by {ctx.author.name}. Check your PMs for more info. Enjoy!'
+                f'"{game.pretty_name}" claimed by {ctx.author.display_name}. Check your PMs for more info. Enjoy!'
             ),
         )
 
@@ -368,6 +367,6 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         last_claim: datetime = member.last_claim
 
         if last_claim:
-            return last_claim + self.wait_time - datetime.utcnow()
+            return last_claim + self.wait_time - datetime.now(UTC)
 
         return timedelta(0)
