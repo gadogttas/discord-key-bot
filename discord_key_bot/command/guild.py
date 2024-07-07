@@ -347,7 +347,6 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         msg.add_field(name=game.pretty_name, value=key.key)
 
         session.delete(key)
-        session.commit()
 
         if not game.keys:
             session.delete(game)
