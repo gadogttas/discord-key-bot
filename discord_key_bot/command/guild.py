@@ -361,6 +361,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             ctx=ctx,
             msg=util.embed(
                 f'"{game.pretty_name}" claimed by {ctx.author.name}. Check your PMs for more info. Enjoy!'
+                f'"{game.pretty_name}" claimed by {ctx.author.display_name}. Check your PMs for more info. Enjoy!'
             ),
         )
 
