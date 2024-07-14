@@ -1,5 +1,5 @@
 import inspect
-from datetime import datetime, timedelta, UTC
+import datetime
 
 from discord import Embed
 from discord.ext import commands
@@ -22,10 +22,10 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         self,
         bot: Bot,
         db_session_maker: sessionmaker,
-        wait_time: timedelta,
+        wait_time: datetime.timedelta,
     ):
         self.bot: Bot = bot
-        self.wait_time: timedelta = wait_time
+        self.wait_time: datetime.timedelta = wait_time
         self.db_session_maker: sessionmaker = db_session_maker
 
     @commands.command()
@@ -352,7 +352,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             session.delete(game)
 
         if key.creator_id != member.id:
-            member.last_claim = datetime.now(UTC)
+            member.last_claim = datetime.datetime.now(datetime.UTC)
         session.commit()
 
         await ctx.author.send(embed=msg)
@@ -363,10 +363,10 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             ),
         )
 
-    def _get_cooldown(self, member: Member) -> timedelta:
-        last_claim: datetime = member.last_claim
+    def _get_cooldown(self, member: Member) -> datetime.timedelta:
+        last_claim: datetime = member.last_claim.replace(tzinfo=datetime.UTC)
 
         if last_claim:
-            return last_claim + self.wait_time - datetime.now(UTC)
+            return last_claim + self.wait_time - datetime.datetime.now(datetime.UTC)
 
-        return timedelta(0)
+        return datetime.timedelta(0)
