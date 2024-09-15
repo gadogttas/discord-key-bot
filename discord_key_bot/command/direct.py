@@ -1,17 +1,16 @@
 import inspect
-from typing import Dict, List
+from typing import List
 
-from discord import Embed
+from discord import Embed, Forbidden, NotFound
 from discord.ext import commands
 from discord.ext.commands import Bot
 
-from discord_key_bot.common.constants import DEFAULT_PAGE_SIZE
 from discord_key_bot.db import search
 from sqlalchemy.orm import sessionmaker, Session
 
 from discord_key_bot.common import util
 from discord_key_bot.db.models import Game, Key, Member
-from discord_key_bot.common.util import GamePlatformCount, send_with_retry, get_page_header_text
+from discord_key_bot.common.util import GamePlatformCount, send_message, get_page_header_text
 from discord_key_bot.db.queries import SortOrder
 from discord_key_bot.platform import (
     all_platforms,
@@ -23,9 +22,10 @@ from discord_key_bot.common.colours import Colours
 class DirectCommands(commands.Cog, name='Direct Message Commands'):
     """Run these commands in private messages to the bot"""
 
-    def __init__(self, bot: Bot, db_session_maker: sessionmaker):
+    def __init__(self, bot: Bot, db_session_maker: sessionmaker, page_size: int):
         self.bot: Bot = bot
         self.db_sessionmaker: sessionmaker = db_session_maker
+        self.page_size: int = page_size
 
     @commands.command()
     async def add(
@@ -59,7 +59,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
         if ctx.guild:
             try:
                 await ctx.message.delete()
-            except Exception:
+            except (Forbidden, NotFound):
                 pass
             await ctx.author.send(
                 embed=util.embed(
@@ -83,7 +83,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
             return
 
         if search.key_exists(session, key):
-            await send_with_retry(
+            await send_message(
                 ctx=ctx,
                 msg=util.embed(f"Key already exists!", Colours.GOLD),
             )
@@ -128,7 +128,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
         platform_lower: str = platform.lower()
 
         if platform_lower not in all_platforms.keys():
-            await send_with_retry(
+            await send_message(
                 ctx=ctx,
                 msg=util.embed(
                     f'"{platform}" is not valid platform',
@@ -146,7 +146,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
             session, member, platform, game_name
         )
         if not game_keys:
-            await send_with_retry(ctx=ctx, msg=util.embed("Game not found"))
+            await send_message(ctx=ctx, msg=util.embed("Game not found"))
             return
 
         key: Key = game_keys[0]
@@ -175,7 +175,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
         page: int = commands.Parameter(
             name="page",
             displayed_name="Page Number",
-            description=f"The page number ({DEFAULT_PAGE_SIZE} games per page)",
+            description=f"The page number",
             kind=inspect.Parameter.POSITIONAL_ONLY,
             default=1,
         ),
@@ -193,7 +193,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
         games: List[GamePlatformCount] = search.get_paginated_games(
             session=session,
             page=page,
-            per_page=DEFAULT_PAGE_SIZE,
+            per_page=self.page_size,
             member_id=member.id,
             sort=SortOrder.TITLE,
         )
@@ -202,8 +202,8 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
 
         msg: Embed = util.build_page_message(
             title="Your Keys",
-            text=get_page_header_text(page, total, DEFAULT_PAGE_SIZE),
+            text=get_page_header_text(page, total, self.page_size),
             games=games,
         )
 
-        await send_with_retry(ctx=ctx, msg=msg)
+        await send_message(ctx=ctx, msg=msg)

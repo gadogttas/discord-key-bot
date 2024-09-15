@@ -14,6 +14,7 @@ async def new(
     bot_channel_id: int,
     command_prefix: str,
     wait_time: datetime.timedelta,
+    page_size: int,
 ) -> Bot:
     bot = commands.Bot(
         command_prefix=command_prefix,
@@ -38,14 +39,7 @@ async def new(
             if bool(ctx.guild):
                 await ctx.message.delete()
 
-            await ctx.author.send(
-                embed=util.embed(
-                    message
-                )
-            )
-            return
-
-        await util.send_with_retry(
+        await util.send_message(
             ctx=ctx,
             msg=message,
         )
@@ -55,8 +49,8 @@ async def new(
         return not bool(ctx.guild) or ctx.channel.id == bot_channel_id
 
     # register cogs
-    await bot.add_cog(guild.GuildCommands(bot, db_session_maker, wait_time))
-    await bot.add_cog(direct.DirectCommands(bot, db_session_maker))
+    await bot.add_cog(guild.GuildCommands(bot, db_session_maker, wait_time, page_size))
+    await bot.add_cog(direct.DirectCommands(bot, db_session_maker, page_size))
 
     discord.utils.setup_logging()
 

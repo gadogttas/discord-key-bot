@@ -50,27 +50,37 @@ def get_search_name(title: str) -> str:
     return re.sub(r"\W", "_", title.lower())
 
 
-async def send_with_retry(
-    ctx: commands.Context, msg: typing.Union[str, discord.Embed], tries: int = RETRIES
+async def send_message(
+    ctx: commands.Context, msg: typing.Union[str, discord.Embed]
 ) -> None:
-    while True:
-        try:
-            if isinstance(msg, str):
-                await ctx.send(msg)
-            else:
-                await ctx.send(embed=msg)
-            return
-        except Exception as e:
-            if tries:
-                tries -= 1
-            else:
-                raise e
+    if is_direct_message(ctx):
+        await send_direct_message(ctx, msg)
+    else:
+        await send_channel_message(ctx, msg)
+
+
+async def send_direct_message(ctx: commands.Context, msg: typing.Union[str, discord.Embed]) -> None:
+    if isinstance(msg, str):
+        await ctx.author.send(msg)
+    else:
+        await ctx.author.send(embed=msg)
+
+
+async def send_channel_message(ctx: commands.Context, msg: typing.Union[str, discord.Embed]) -> None:
+    if isinstance(msg, str):
+        await ctx.send(msg)
+    else:
+        await ctx.send(embed=msg)
 
 
 def get_page_header_text(page: int, total: int, per_page: int) -> str:
     pages: int = ceil(total / per_page)
 
     return f"Showing page {page} of {pages} ({total} games)"
+
+
+def is_direct_message(ctx: commands.Context) -> bool:
+    return not ctx.guild
 
 
 def pretty_timedelta(delta: datetime.timedelta) -> str:

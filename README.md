@@ -11,7 +11,7 @@ Channel Commands:
   latest    Browse through available games by date added in descending order
   platform  Lists available games for the specified platform
   platforms Shows valid platforms
-  random    Display 20 random available games
+  random    Display random available games
   search    Search available games
   share     Share your keys with this guild
   unshare   Remove this guild from the guilds you share keys with
@@ -65,7 +65,7 @@ The bot currently supports keys for:
 
 ### `!browse [page=1]`
 
-Browse through available games. 20 per page, sorted alphabetically.
+Browse through available games sorted alphabetically.
 
 ### `!claim [platform] [game_name...]`
 
@@ -112,7 +112,7 @@ Minimum permissions required are:
 
 ### Python
 
-Two environment variables are required.
+Three environment variables are required.
 
 ```shell
 TOKEN=<discord bot token> # Required
