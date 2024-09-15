@@ -68,14 +68,20 @@ uplay: Platform = Platform(
 
 xbox: Platform = Platform(
     name="Xbox",
-    key_regexes=[r"^[a-zA-Z0-9]{25}$"],
-    example_keys=["ABCDEABCDEABCDEABCDEABCDE (25 chars)"],
+    key_regexes=[
+        r"^[a-zA-Z0-9]{25}$",
+        r"^[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}$"
+    ],
+    example_keys=["ABCDEABCDEABCDEABCDEABCDE (25 chars)", "ABCDE-ABCDE-ABCDE-ABCDE-ABCDE"],
 )
 
 windows: Platform = Platform(
     name="Windows",
-    key_regexes=[r"^[a-zA-Z0-9]{25}$"],
-    example_keys=["ABCDEABCDEABCDEABCDEABCDE (25 chars)"],
+    key_regexes=[
+        r"^[a-zA-Z0-9]{25}$",
+        r"^[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}$"
+    ],
+    example_keys=["ABCDEABCDEABCDEABCDEABCDE (25 chars)", "ABCDE-ABCDE-ABCDE-ABCDE-ABCDE"],
 )
 
 switch: Platform = Platform(
