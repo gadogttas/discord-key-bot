@@ -368,6 +368,6 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         last_claim: datetime = member.last_claim.replace(tzinfo=datetime.UTC)
 
         if last_claim:
-            return last_claim + self.wait_time - datetime.datetime.now(datetime.UTC)
+            return last_claim - datetime.datetime.now(datetime.UTC) + self.wait_time
 
         return datetime.timedelta(0)
