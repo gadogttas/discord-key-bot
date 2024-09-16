@@ -377,12 +377,23 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     ) -> None:
         """Display a single random game for the requested platform"""
 
+        platform_lower: str = platform.lower()
+
+        if platform_lower not in all_platforms.keys():
+            await send_message(
+                ctx=ctx,
+                msg=util.embed(
+                    f'"{platform}" is not valid platform', colour=Colours.RED, title="Not that lucky, I guess.",
+                ),
+            )
+            return
+
         session: Session = self.db_session_maker()
 
         games: List[GamePlatformCount] = search.get_paginated_games(
             session=session,
             guild_id=ctx.guild.id,
-            platform=platform,
+            platform=platform_lower,
             per_page=1,
             sort=SortOrder.RANDOM,
         )
