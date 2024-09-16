@@ -364,6 +364,44 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             ),
         )
 
+    @commands.command()
+    async def imfeelinglucky(
+            self,
+            ctx: commands.Context,
+            platform: str = commands.Parameter(
+                name="platform",
+                displayed_name="Platform",
+                description="The platform you wish to find a game for (e.g. Steam)",
+                kind=inspect.Parameter.POSITIONAL_ONLY,
+            ),
+    ) -> None:
+        """Display a single random game for the requested platform"""
+
+        session: Session = self.db_session_maker()
+
+        games: List[GamePlatformCount] = search.get_paginated_games(
+            session=session,
+            guild_id=ctx.guild.id,
+            platform=platform,
+            per_page=1,
+            sort=SortOrder.RANDOM,
+        )
+
+        total: int = search.count_games(session=session, guild_id=ctx.guild.id, platform=platform)
+
+        msg = util.embed(
+            f"Showing one random game of {total} total",
+            title="Well, are you?",
+        )
+
+        if not games:
+            await send_message(ctx=ctx, msg=util.embed("No games found"))
+            return
+
+        msg.add_field(name=games[0].name, value=games[0].platforms_string())
+
+        await send_message(ctx=ctx, msg=msg)
+
     def _get_cooldown(self, member: Member) -> datetime.timedelta:
         last_claim: datetime = member.last_claim.replace(tzinfo=datetime.UTC)
 
