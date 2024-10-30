@@ -19,7 +19,7 @@ class Game(Base):
     keys: Mapped[List["Key"]] = relationship(back_populates="game")
 
     @staticmethod
-    def get(session: Session, pretty_name: str):
+    def get(session: Session, pretty_name: str) -> "Game":
         name = get_search_name(pretty_name)
         game = session.query(Game).filter(Game.name == name).first()
 
@@ -28,6 +28,12 @@ class Game(Base):
             session.add(game)
 
         return game
+
+    def find_key_by_platform(self, platform: str) -> "Key":
+        try:
+            return next(key for key in self.keys if key.platform == platform)
+        except StopIteration:
+            raise ValueError
 
 
 class Key(Base):

@@ -5,7 +5,7 @@ from discord import Embed
 from discord.ext import commands
 from discord.ext.commands import Bot
 from sqlalchemy.orm import Session, sessionmaker
-from typing import List, Dict
+from typing import List, Optional
 
 from discord_key_bot.common import util
 from discord_key_bot.db import search
@@ -325,21 +325,19 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             )
             return
 
-        game_keys: Dict[str, List[Key]] = search.get_game_keys(
+        game: Optional[Game] = search.get_game(
             session, game_name, ctx.guild.id
         )   
 
-        if not game_keys:
+        if not game:
             await send_message(ctx=ctx, msg=util.embed("Game not found"))
             return
 
         try:
-            key: Key = game_keys[platform_lower][0]
-        except KeyError:
+            key: Key = game.find_key_by_platform(platform)
+        except ValueError:
             await send_message(ctx=ctx, msg=util.embed("No keys found for the specified platform"))
             return
-
-        game: Game = key.game
 
         msg: Embed = util.embed(
             f"Please find your key below", title="Game claimed!", colour=Colours.GREEN
@@ -348,6 +346,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         msg.add_field(name=game.pretty_name, value=key.key)
 
         session.delete(key)
+        session.refresh(game)
 
         if not game.keys:
             session.delete(game)

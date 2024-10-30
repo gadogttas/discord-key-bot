@@ -24,9 +24,9 @@ from discord_key_bot.db.queries import SortOrder, paginated_queries
 from discord_key_bot.platform import all_platforms
 
 
-def get_game_keys(
+def get_game(
     session: Session, game_name: str, guild_id: int
-) -> Dict[str, List[Key]]:
+) -> typing.Optional[Game]:
     game: typing.Optional[Game] = (
         session.query(Game)
         .join(Key)
@@ -39,15 +39,7 @@ def get_game_keys(
         .first()
     )
 
-    key_dict: Dict[str, List[Key]] = {}
-
-    if game:
-        key_dict = {
-            platform: list(keys)
-            for platform, keys in groupby(game.keys, lambda x: x.platform)
-        }
-
-    return key_dict
+    return game
 
 
 def find_game_keys_for_user(
