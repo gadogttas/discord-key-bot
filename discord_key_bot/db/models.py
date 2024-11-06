@@ -1,13 +1,13 @@
-from typing import List
+import datetime
+from typing import List, Optional
 
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
-from sqlalchemy.orm import relationship, mapped_column, Mapped, Session, declarative_base
+from sqlalchemy.orm import relationship, mapped_column, Mapped, Session, declarative_base, sessionmaker
 from sqlalchemy.ext.associationproxy import association_proxy, AssociationProxy
 
 from discord_key_bot.common.util import get_search_name
-
-
-Base = declarative_base()
+from discord_key_bot.db import sqlalchemy_helpers, db_schema
+from .db_schema import Base
 
 
 class Game(Base):
@@ -30,8 +30,11 @@ class Game(Base):
         return game
 
     def find_key_by_platform(self, platform: str) -> "Key":
+        # claim the latest expiring keys first
+        sorted_keys: List[Optional["Key"]] = sorted(
+            self.keys, key=lambda k: datetime.datetime.max if not k.expiration else k.expiration)
         try:
-            return next(key for key in self.keys if key.platform == platform)
+            return next(key for key in sorted_keys if key.platform == platform)
         except StopIteration:
             raise ValueError
 
@@ -48,6 +51,18 @@ class Key(Base):
 
     creator_id = Column(Integer, ForeignKey("members.id"))
     creator = relationship("Member", backref="keys")
+    expiration = Column(DateTime)
+
+
+def _upgrade_keys(session: Session) -> None:
+    def upgrade_func(ver: int) -> int:
+        if ver < 1:
+            sqlalchemy_helpers.table_add_column("keys", "expiration", DateTime, session)
+            ver = 1
+
+        return ver
+
+    db_schema.upgrade(entity='keys', upgrade_func=upgrade_func, session=session)
 
 
 class Guild(Base):
@@ -82,3 +97,8 @@ class Member(Base):
             session.add(member)
 
         return member
+
+
+def upgrade_tables(db_session_maker: sessionmaker) -> None:
+    session: Session = db_session_maker()
+    _upgrade_keys(session=session)

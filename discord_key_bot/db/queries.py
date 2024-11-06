@@ -25,6 +25,7 @@ WITH platform_games AS (
         (:member_id = 0 OR members.id = :member_id)
         AND (:platform = '' OR keys.platform = :platform)
         AND (:search_args = '' OR games.name LIKE '%' || :search_args || '%')
+        AND (keys.expiration IS NULL OR keys.expiration > CURRENT_DATE)
         AND ( 
             :guild_id = 0 
             OR EXISTS (

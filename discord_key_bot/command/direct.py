@@ -1,4 +1,5 @@
 import inspect
+import datetime
 from typing import List
 
 from discord import Embed, Forbidden, NotFound
@@ -142,15 +143,15 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
 
         member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
-        game_keys: List[Key] = search.find_game_keys_for_user(
-            session, member, platform, game_name
-        )
-        if not game_keys:
+        game: Game = search.get_game(session=session, game_name=game_name, member_id=member.id)
+        if not game:
             await send_message(ctx=ctx, msg=util.embed("Game not found"))
             return
 
-        key: Key = game_keys[0]
-        game: Game = key.game
+        key: Key = game.find_key_by_platform(platform)
+        if not key:
+            await send_message(ctx=ctx, msg=util.embed("Game not found"))
+            return
 
         msg: Embed = util.embed(
             f"Please find your key below", title="Key removed!", colour=Colours.GREEN
@@ -159,6 +160,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
         msg.add_field(name=game.pretty_name, value=key.key)
 
         session.delete(key)
+        session.refresh(game)
         session.commit()
 
         if not game.keys:
@@ -207,3 +209,73 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
         )
 
         await send_message(ctx=ctx, msg=msg)
+
+    @commands.command()
+    async def expiration(
+        self,
+        ctx: commands.Context,
+        key: str = commands.Parameter(
+            name="key",
+            displayed_name="Key",
+            description="The key to add an expiration date to",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+        ),
+        *,
+        expiration: str = commands.Parameter(
+            name="expiration",
+            displayed_name="Expiration Date",
+            description="The expiration date in MMM DD YYYY format (e.g. Dec 10 2029).",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+        ),
+     ) -> None:
+        """Add an expiration date to a key"""
+
+        if ctx.guild:
+            try:
+                await ctx.message.delete()
+            except (Forbidden, NotFound):
+                pass
+            await ctx.author.send(
+                embed=util.embed(
+                    "You should really do this here, so it's only the bot giving away keys.",
+                    colour=Colours.LUMINOUS_VIVID_PINK,
+                )
+            )
+
+        session: Session = self.db_sessionmaker()
+        key = search.find_key(session=session, key=key)
+
+        if not key:
+            await send_message(
+                ctx=ctx,
+                msg=util.embed(f"Key does not exist.", Colours.GOLD),
+            )
+            return
+
+        if not key.creator_id == ctx.author.id:
+            await send_message(
+                ctx=ctx,
+                msg=util.embed(f"Can't add expiration to someone else's key.", Colours.GOLD),
+            )
+            return
+
+        try:
+            expiration_date = datetime.datetime.strptime(expiration, "%b %d %Y")
+        except ValueError:
+            await send_message(
+                ctx=ctx,
+                msg=util.embed(f"Failed to parse expiration date.", Colours.RED),
+            )
+            return
+
+        if expiration_date.date() <= datetime.datetime.now(datetime.UTC).date():
+            await send_message(
+                ctx=ctx,
+                msg=util.embed(f"Expiration date is in the past.", Colours.RED),
+            )
+            return
+
+        key.expiration = expiration_date
+        session.commit()
+
+        await send_message(ctx=ctx, msg=util.embed("Expiration added"))

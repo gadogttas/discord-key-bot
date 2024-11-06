@@ -412,6 +412,45 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
 
         await send_message(ctx=ctx, msg=msg)
 
+    @commands.command()
+    async def expiring(
+        self,
+        ctx: commands.Context,
+        page: int = commands.Parameter(
+            name="page",
+            displayed_name="Page Number",
+            description=f"The page number",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+            default=1,
+        ),
+    ) -> None:
+        """Keys expiring soon"""
+
+        session: Session = self.db_session_maker()
+
+        keys: List[Key]
+        count: int
+
+        keys, count = search.get_expiring_keys(
+            session=session,
+            guild_id=ctx.guild.id,
+            page=page,
+            per_page=self.page_size,
+        )
+
+        if not keys:
+            await send_message(ctx=ctx, msg=util.embed("No keys found"))
+            return
+
+        msg: Embed = util.embed(title="Expiring Keys",
+                                text=get_page_header_text(page, count, self.page_size, "keys"))
+
+        for key in keys:
+            msg.add_field(name=key.game.pretty_name, value=pretty_platform(key.platform) + ": " +
+                                                    datetime.datetime.strftime(key.expiration, "%b %d %Y"))
+
+        await send_message(ctx=ctx, msg=msg)
+
     def _get_cooldown(self, member: Member) -> datetime.timedelta:
         last_claim: datetime = member.last_claim.replace(tzinfo=datetime.UTC)
 

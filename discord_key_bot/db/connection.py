@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
-from .models import Base
+from .models import Base, upgrade_tables
 
 
 def new(uri: str, connection_timeout: str = 15) -> sessionmaker:
@@ -13,4 +13,7 @@ def new(uri: str, connection_timeout: str = 15) -> sessionmaker:
     )
     Base.metadata.create_all(engine)
 
-    return sessionmaker(bind=engine)
+    db_session_maker = sessionmaker(bind=engine)
+    upgrade_tables(db_session_maker)
+
+    return db_session_maker

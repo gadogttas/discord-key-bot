@@ -73,10 +73,10 @@ async def send_channel_message(ctx: commands.Context, msg: typing.Union[str, dis
         await ctx.send(embed=msg)
 
 
-def get_page_header_text(page: int, total: int, per_page: int) -> str:
+def get_page_header_text(page: int, total: int, per_page: int, unit: str = "games") -> str:
     pages: int = ceil(total / per_page)
 
-    return f"Showing page {page} of {pages} ({total} games)"
+    return f"Showing page {page} of {pages} ({total} {unit})"
 
 
 def is_direct_message(ctx: commands.Context) -> bool:
