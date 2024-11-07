@@ -13,10 +13,7 @@ from discord_key_bot.common import util
 from discord_key_bot.db.models import Game, Key, Member
 from discord_key_bot.common.util import GamePlatformCount, send_message, get_page_header_text
 from discord_key_bot.db.queries import SortOrder
-from discord_key_bot.platform import (
-    all_platforms,
-    Platform,
-)
+from discord_key_bot.platform import Platform, get_platform
 from discord_key_bot.common.colours import Colours
 
 
@@ -70,10 +67,10 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
             )
 
         try:
-            platform: Platform = all_platforms[platform_name.lower()]
-        except KeyError:
+            platform: Platform = get_platform(platform_name)
+        except ValueError:
             await ctx.author.send(
-                embed=util.embed("Invalid platform name.", Colours.RED),
+                embed=util.embed(f'"{platform_name}" is not valid platform', Colours.RED),
             )
             return
 
@@ -110,7 +107,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
     async def remove(
         self,
         ctx: commands.Context,
-        platform: str = commands.Parameter(
+        platform_name: str = commands.Parameter(
             name="platform",
             displayed_name="Platform",
             description="The platform of the game you wish to remove",
@@ -126,13 +123,14 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
     ) -> None:
         """Remove a key and send to you in a PM"""
 
-        platform_lower: str = platform.lower()
 
-        if platform_lower not in all_platforms.keys():
+        try:
+            platform: Platform = get_platform(platform_name)
+        except ValueError:
             await send_message(
                 ctx=ctx,
                 msg=util.embed(
-                    f'"{platform}" is not valid platform',
+                    f'"{platform_name}" is not valid platform',
                     colour=Colours.RED,
                     title="Search Error",
                 ),

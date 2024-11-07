@@ -1,5 +1,5 @@
 import re
-from typing import List, Dict
+from typing import List, Dict, Iterable
 
 
 class Platform(object):
@@ -92,7 +92,7 @@ switch: Platform = Platform(
 
 
 # TODO: should I make a registry class for these?
-all_platforms: Dict[str, Platform] = {
+_all_platforms: Dict[str, Platform] = {
     gog.search_name: gog,
     steam.search_name: steam,
     playstation.search_name: playstation,
@@ -104,7 +104,12 @@ all_platforms: Dict[str, Platform] = {
 }
 
 
-def pretty_platform(platform: str) -> str:
-    """Find the properly capitalized platform name"""
+def all_platforms() -> Iterable[Platform]:
+    return _all_platforms.values()
 
-    return all_platforms[platform.lower()].name
+
+def get_platform(platform_name: str) -> Platform:
+    try:
+        return _all_platforms[platform_name.lower()]
+    except KeyError:
+        raise ValueError

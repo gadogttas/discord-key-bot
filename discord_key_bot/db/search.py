@@ -21,7 +21,7 @@ from discord_key_bot.db.models import (
 )
 from discord_key_bot.db import queries
 from discord_key_bot.db.queries import SortOrder, paginated_queries
-from discord_key_bot.platform import all_platforms
+from discord_key_bot.platform import get_platform, Platform
 
 
 def get_game(
@@ -55,7 +55,7 @@ def get_game(
 def get_expiring_keys(
     session: Session,
         guild_id: int = 0,
-        platform: str = '',
+        platform: Platform = None,
         page: int = 1,
         per_page: int = DEFAULT_PAGE_SIZE,
 ) -> typing.Tuple[List[Key], int]:
@@ -65,14 +65,14 @@ def get_expiring_keys(
         .filter(
             and_(
                 or_(
-                    guild_id == 0,
+                    not guild_id,
                     Key.creator_id.in_(
                         session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id)
                     )
                 ),
                 or_(
-                    platform == '',
-                    Key.platform == platform
+                    not platform,
+                    Key.platform == _platform_search_str(platform)
                 ),
                 Key.expiration > func.current_date()
             )
@@ -108,7 +108,7 @@ def get_paginated_games(
     session: Session,
     guild_id: int = 0,
     member_id: int = 0,
-    platform: str = "",
+    platform: Platform = None,
     title: str = "",
     page: int = 1,
     per_page: int = DEFAULT_PAGE_SIZE,
@@ -127,7 +127,7 @@ def get_paginated_games(
             "offset": offset,
             "per_page": per_page,
             "member_id": member_id,
-            "platform": platform,
+            "platform": _platform_search_str(platform),
             "search_args": get_search_name(title),
         },
     )
@@ -136,7 +136,7 @@ def get_paginated_games(
     platform_game_dict: typing.OrderedDict[str, List[PlatformCount]] = OrderedDict()
     for game_name, platform_name, key_count in results:
         platform_count: PlatformCount = PlatformCount(
-            all_platforms[platform_name], key_count
+            get_platform(platform_name), key_count
         )
 
         if game_name in platform_game_dict.keys():
@@ -154,11 +154,18 @@ def get_paginated_games(
 
 
 def count_games(
-    session: Session, guild_id: int = 0, platform: str = "", member_id: int = 0
+    session: Session,
+    guild_id: int = 0,
+    platform: Platform = None,
+    member_id: int = 0
 ) -> int:
     results: Result = session.execute(
         text(queries.count_games),
-        {"guild_id": guild_id, "member_id": member_id, "platform": platform},
+        {
+            "guild_id": guild_id,
+            "member_id": member_id,
+            "platform": _platform_search_str(platform)
+        },
     )
 
     return results.first()[0]
@@ -166,3 +173,7 @@ def count_games(
 
 def key_exists(session: Session, key: str) -> bool:
     return bool(find_key(session=session, key=key))
+
+
+def _platform_search_str(platform: Platform) -> str:
+    return platform.search_name if platform else ''

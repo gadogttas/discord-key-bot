@@ -8,6 +8,7 @@ from sqlalchemy.ext.associationproxy import association_proxy, AssociationProxy
 from discord_key_bot.common.util import get_search_name
 from discord_key_bot.db import sqlalchemy_helpers, db_schema
 from .db_schema import Base
+from ..platform import Platform
 
 
 class Game(Base):
@@ -29,12 +30,12 @@ class Game(Base):
 
         return game
 
-    def find_key_by_platform(self, platform: str) -> "Key":
+    def find_key_by_platform(self, platform: Platform) -> "Key":
         # claim the latest expiring keys first
         sorted_keys: List[Optional["Key"]] = sorted(
             self.keys, key=lambda k: datetime.datetime.max if not k.expiration else k.expiration)
         try:
-            return next(key for key in sorted_keys if key.platform == platform)
+            return next(key for key in sorted_keys if key.platform == platform.search_name)
         except StopIteration:
             raise ValueError
 
