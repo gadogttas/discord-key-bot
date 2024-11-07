@@ -1,5 +1,7 @@
 import asyncio
 
+from sqlalchemy.orm import sessionmaker
+
 import discord_key_bot.bot
 import os
 
@@ -7,7 +9,7 @@ from datetime import timedelta
 from dotenv import load_dotenv
 
 from discord_key_bot.common.constants import DEFAULT_PAGE_SIZE
-from discord_key_bot.db import session_maker
+from discord_key_bot.db import connection
 
 
 async def main():
@@ -20,8 +22,10 @@ async def main():
     token: str = os.environ["TOKEN"]
     page_size: int = int(os.environ.get("PAGE_SIZE", str(DEFAULT_PAGE_SIZE)))
 
+    db_session_maker: sessionmaker = connection.new(sqlalchemy_uri)
+
     bot = await discord_key_bot.bot.new(
-        db_session_maker=session_maker.new(sqlalchemy_uri),
+        db_session_maker=db_session_maker,
         bot_channel_id=bot_channel_id,
         wait_time=wait_time,
         command_prefix=command_prefix,

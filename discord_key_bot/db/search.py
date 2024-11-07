@@ -1,11 +1,11 @@
+import datetime
 import typing
 from collections import OrderedDict
-from itertools import groupby
-from typing import Dict, List
+from typing import List
 
-from sqlalchemy import text
+from sqlalchemy import text, or_, and_, func
 from sqlalchemy.ext.baked import Result
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, Query
 
 from discord_key_bot.common.constants import DEFAULT_PAGE_SIZE
 from discord_key_bot.common.util import (
@@ -25,40 +25,83 @@ from discord_key_bot.platform import all_platforms
 
 
 def get_game(
-    session: Session, game_name: str, guild_id: int
+    session: Session,
+    game_name: str,
+    guild_id: int = 0,
+    member_id: int = 0,
 ) -> typing.Optional[Game]:
     game: typing.Optional[Game] = (
         session.query(Game)
         .join(Key)
         .filter(
-            Key.creator_id.in_(
-                session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id)
+            and_(
+                or_(
+                    guild_id == 0,
+                    Key.creator_id.in_(session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id))
+                ),
+                or_(
+                    member_id == 0,
+                    Key.creator_id == member_id
+                ),
+                Game.name == get_search_name(game_name)
             )
         )
-        .filter(Game.name == get_search_name(game_name))
         .first()
     )
 
     return game
 
 
-def find_game_keys_for_user(
-    session: Session, member: Member, platform: str, game_name: str
-) -> List[Key]:
-    game: typing.Optional[Game] = (
-        session.query(Game)
-        .join(Key)
+def get_expiring_keys(
+    session: Session,
+        guild_id: int = 0,
+        platform: str = '',
+        page: int = 1,
+        per_page: int = DEFAULT_PAGE_SIZE,
+) -> typing.Tuple[List[Key], int]:
+    statement: Query[typing.Type[Key]] = (
+        session.query(Key)
+        .join(Game)
         .filter(
-            Game.name == get_search_name(game_name),
-            Key.platform == platform.lower(),
-            Key.creator_id == member.id,
+            and_(
+                or_(
+                    guild_id == 0,
+                    Key.creator_id.in_(
+                        session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id)
+                    )
+                ),
+                or_(
+                    platform == '',
+                    Key.platform == platform
+                ),
+                Key.expiration > func.current_date()
+            )
+        )
+    )
+
+    count: int = statement.count()
+    offset: int = (page - 1) * per_page
+
+    keys: List[Key] = []
+    for key in session.scalars(statement.order_by(Key.expiration.asc()).limit(per_page).offset(offset)):
+        keys.append(key)
+
+    return keys, count
+
+
+def find_key(
+    session: Session,
+    key: str,
+) -> Key:
+    key_data: typing.Optional[Key] = (
+        session.query(Key)
+        .filter(
+            Key.key == key
         )
         .first()
     )
 
-    keys: List[Key] = game.keys if game else []
-
-    return keys
+    return key_data
 
 
 def get_paginated_games(
@@ -122,4 +165,4 @@ def count_games(
 
 
 def key_exists(session: Session, key: str) -> bool:
-    return bool(session.query(Key).filter(Key.key == key).count())
+    return bool(find_key(session=session, key=key))
