@@ -11,7 +11,7 @@ from discord_key_bot.common import util
 from discord_key_bot.db import search
 from discord_key_bot.db.models import Member, Key, Game
 from discord_key_bot.db.queries import SortOrder
-from discord_key_bot.platform import all_platforms, pretty_platform
+from discord_key_bot.platform import all_platforms, get_platform, Platform
 from discord_key_bot.common.util import GamePlatformCount, send_message, get_page_header_text
 from discord_key_bot.common.colours import Colours
 
@@ -69,7 +69,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             f"Showing valid platforms and example key formats", title="Platforms"
         )
 
-        for platform in all_platforms.values():
+        for platform in all_platforms():
             formats = "\n".join(platform.example_keys)
             value = f"Example format(s):\n{formats}"
             msg.add_field(name=platform.name, value=value, inline=False)
@@ -80,8 +80,8 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     async def platform(
         self,
         ctx: commands.Context,
-        platform: str = commands.Parameter(
-            name="platform",
+        platform_name: str = commands.Parameter(
+            name="platform_name",
             displayed_name="Platform",
             description="The platform you wish to see games for (e.g. Steam)",
             kind=inspect.Parameter.POSITIONAL_ONLY,
@@ -96,13 +96,13 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     ) -> None:
         """Lists available games for the specified platform"""
 
-        platform_lower = platform.lower()
-
-        if platform_lower not in all_platforms.keys():
+        try:
+            platform: Platform = get_platform(platform_name)
+        except ValueError:
             await send_message(
                 ctx=ctx,
                 msg=util.embed(
-                    f'"{platform}" is not valid platform',
+                    f'"{platform_name}" is not valid platform',
                     colour=Colours.RED,
                     title="Search failed",
                 ),
@@ -113,7 +113,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
 
         games: List[GamePlatformCount] = search.get_paginated_games(
             session=session,
-            platform=platform_lower,
+            platform=platform,
             guild_id=ctx.guild.id,
             per_page=self.page_size,
             page=page,
@@ -121,12 +121,12 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         )
 
         total: int = search.count_games(
-            session=session, guild_id=ctx.guild.id, platform=platform_lower
+            session=session, guild_id=ctx.guild.id, platform=platform
         )
 
         msg = util.embed(
             get_page_header_text(page, total, self.page_size),
-            title=f"Browse Games available for {pretty_platform(platform)}",
+            title=f"Browse Games available for {platform.name}",
         )
 
         for game in games:
@@ -284,8 +284,8 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     async def claim(
         self,
         ctx: commands.Context,
-        platform: str = commands.Parameter(
-            name="platform",
+        platform_name: str = commands.Parameter(
+            name="platform_name",
             displayed_name="Platform",
             description="The platform you wish to claim a key for (e.g. Steam)",
             kind=inspect.Parameter.POSITIONAL_ONLY,
@@ -314,13 +314,15 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             )
             return
 
-        platform_lower: str = platform.lower()
-
-        if platform_lower not in all_platforms.keys():
+        try:
+            platform: Platform = get_platform(platform_name)
+        except ValueError:
             await send_message(
                 ctx=ctx,
                 msg=util.embed(
-                    f'"{platform}" is not valid platform', colour=Colours.RED, title="Failed to claim",
+                    f'"{platform_name}" is not valid platform',
+                    colour=Colours.RED,
+                    title="Failed to claim",
                 ),
             )
             return
@@ -367,8 +369,8 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     async def imfeelinglucky(
             self,
             ctx: commands.Context,
-            platform: str = commands.Parameter(
-                name="platform",
+            platform_name: str = commands.Parameter(
+                name="platform_name",
                 displayed_name="Platform",
                 description="The platform you wish to find a game for (e.g. Steam)",
                 kind=inspect.Parameter.POSITIONAL_ONLY,
@@ -376,13 +378,15 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     ) -> None:
         """Display a single random game for the requested platform"""
 
-        platform_lower: str = platform.lower()
-
-        if platform_lower not in all_platforms.keys():
+        try:
+            platform: Platform = get_platform(platform_name)
+        except ValueError:
             await send_message(
                 ctx=ctx,
                 msg=util.embed(
-                    f'"{platform}" is not valid platform', colour=Colours.RED, title="Not that lucky, I guess.",
+                    text=f'"{platform_name}" is not valid platform',
+                    colour=Colours.RED,
+                    title="Not that lucky, I guess.",
                 ),
             )
             return
@@ -392,7 +396,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         games: List[GamePlatformCount] = search.get_paginated_games(
             session=session,
             guild_id=ctx.guild.id,
-            platform=platform_lower,
+            platform=platform,
             per_page=1,
             sort=SortOrder.RANDOM,
         )
@@ -446,8 +450,12 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                                 text=get_page_header_text(page, count, self.page_size, "keys"))
 
         for key in keys:
-            msg.add_field(name=key.game.pretty_name, value=pretty_platform(key.platform) + ": " +
-                                                    datetime.datetime.strftime(key.expiration, "%b %d %Y"))
+            platform: Platform = get_platform(key.platform)
+            datestr: str = datetime.datetime.strftime(key.expiration, "%b %d %Y")
+            msg.add_field(
+                name=key.game.pretty_name,
+                value=f"{platform.name} : {datestr}"
+            )
 
         await send_message(ctx=ctx, msg=msg)
 
