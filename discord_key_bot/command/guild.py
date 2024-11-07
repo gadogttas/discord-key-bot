@@ -413,9 +413,8 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         await send_message(ctx=ctx, msg=msg)
 
     def _get_cooldown(self, member: Member) -> datetime.timedelta:
-        last_claim: datetime = member.last_claim.replace(tzinfo=datetime.UTC)
-
-        if last_claim:
+        if member.last_claim:
+            last_claim: datetime = member.last_claim.replace(tzinfo=datetime.UTC)
             return last_claim - datetime.datetime.now(datetime.UTC) + self.wait_time
 
         return datetime.timedelta(0)
