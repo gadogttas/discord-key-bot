@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 import discord
 from discord.ext import commands
@@ -15,7 +16,10 @@ async def new(
     command_prefix: str,
     wait_time: datetime.timedelta,
     page_size: int,
+    loglevel: int = logging.INFO,
 ) -> Bot:
+    discord.utils.setup_logging(level=loglevel)
+
     bot = commands.Bot(
         command_prefix=command_prefix,
         intents=discord.Intents(messages=True, message_content=True, guilds=True),
@@ -33,7 +37,7 @@ async def new(
         elif isinstance(error, commands.MissingRequiredArgument):
             message = f"**Please pass in all requirements. Use** `{command_prefix}help {ctx.invoked_with}` **to see requirements.**"
         else:
-            return
+            raise error
 
         if isinstance(ctx.cog, direct.DirectCommands):
             if bool(ctx.guild):
@@ -51,7 +55,5 @@ async def new(
     # register cogs
     await bot.add_cog(guild.GuildCommands(bot, db_session_maker, wait_time, page_size))
     await bot.add_cog(direct.DirectCommands(bot, db_session_maker, page_size))
-
-    discord.utils.setup_logging()
 
     return bot
