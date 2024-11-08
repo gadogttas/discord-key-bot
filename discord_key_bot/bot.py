@@ -6,7 +6,7 @@ from discord.ext import commands
 from discord.ext.commands import Bot, CommandError
 from sqlalchemy.orm import sessionmaker
 
-from discord_key_bot.command import guild, direct
+from discord_key_bot.command import guild, direct, admin
 from discord_key_bot.common import util
 
 
@@ -55,5 +55,6 @@ async def new(
     # register cogs
     await bot.add_cog(guild.GuildCommands(bot, db_session_maker, wait_time, page_size))
     await bot.add_cog(direct.DirectCommands(bot, db_session_maker, page_size))
+    await bot.add_cog(admin.AdminCommands(bot, db_session_maker))
 
     return bot
