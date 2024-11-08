@@ -13,20 +13,35 @@ from discord_key_bot.common.constants import DEFAULT_PAGE_SIZE
 from discord_key_bot.db import connection
 
 
-async def main():
+async def start():
     load_dotenv()
 
-    command_prefix: str = os.environ.get("BANG", "!")
-    wait_time: timedelta = timedelta(seconds=int(os.environ.get("WAIT_TIME", 86400)))
-    bot_channel_id: int = int(os.environ.get("BOT_CHANNEL_ID"))
-    sqlalchemy_uri: str = os.environ.get("SQLALCHEMY_URI", "sqlite:///:memory:")
-    token: str = os.environ["TOKEN"]
-    page_size: int = int(os.environ.get("PAGE_SIZE", str(DEFAULT_PAGE_SIZE)))
     loglevel_str: str = os.environ.get("LOGLEVEL", "INFO")
+    log_level: int = logging.getLevelName(loglevel_str)
+    logging.basicConfig(level=log_level)
 
-    loglevel: int = logging.getLevelName(loglevel_str)
+    logger = logging.getLogger("discord-key-bot.start")
+    logger.debug(f"Log level set to {loglevel_str}")
+
+    command_prefix: str = os.environ.get("BANG", "!")
+    logger.debug(f"Command prefix: {command_prefix}")
+
+    wait_time: timedelta = timedelta(seconds=int(os.environ.get("WAIT_TIME", 86400)))
+    logger.debug(f"Claim cooldown: {wait_time}")
+
+    bot_channel_id: int = int(os.environ.get("BOT_CHANNEL_ID"))
+    logger.debug(f"Bot Channel ID: {bot_channel_id}")
+
+    sqlalchemy_uri: str = os.environ.get("SQLALCHEMY_URI", "sqlite:///:memory:")
+    logger.debug(f"Database URI: {sqlalchemy_uri}")
+
+    page_size: int = int(os.environ.get("PAGE_SIZE", str(DEFAULT_PAGE_SIZE)))
+    logger.debug(f"Page size: {page_size}")
+
+    token: str = os.environ["TOKEN"]
 
     db_session_maker: sessionmaker = connection.new(sqlalchemy_uri)
+    logger.info("Successfully initialized database connection")
 
     bot = await discord_key_bot.bot.new(
         db_session_maker=db_session_maker,
@@ -34,10 +49,11 @@ async def main():
         wait_time=wait_time,
         command_prefix=command_prefix,
         page_size=page_size,
-        loglevel=loglevel
+        log_level=log_level,
+        log_handler=logging.StreamHandler()
     )
 
     await bot.start(token)
 
-
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(start())
