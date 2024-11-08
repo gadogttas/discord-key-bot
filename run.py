@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from sqlalchemy.orm import sessionmaker
 
@@ -21,6 +22,9 @@ async def main():
     sqlalchemy_uri: str = os.environ.get("SQLALCHEMY_URI", "sqlite:///:memory:")
     token: str = os.environ["TOKEN"]
     page_size: int = int(os.environ.get("PAGE_SIZE", str(DEFAULT_PAGE_SIZE)))
+    loglevel_str: str = os.environ.get("LOGLEVEL", "INFO")
+
+    loglevel: int = logging.getLevelName(loglevel_str)
 
     db_session_maker: sessionmaker = connection.new(sqlalchemy_uri)
 
@@ -30,6 +34,7 @@ async def main():
         wait_time=wait_time,
         command_prefix=command_prefix,
         page_size=page_size,
+        loglevel=loglevel
     )
 
     await bot.start(token)
