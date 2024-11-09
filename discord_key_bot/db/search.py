@@ -3,9 +3,9 @@ import typing
 from collections import OrderedDict
 from typing import List
 
-from sqlalchemy import text, or_, and_, func
+from sqlalchemy import text, or_, and_, func, exists
 from sqlalchemy.ext.baked import Result
-from sqlalchemy.orm import Session, Query
+from sqlalchemy.orm import Session, Query, aliased
 
 from discord_key_bot.common.constants import DEFAULT_PAGE_SIZE
 from discord_key_bot.common.util import (
@@ -52,6 +52,20 @@ def get_game(
     return game
 
 
+def get_admin_games(
+    session: Session,
+    game_name: str,
+) -> typing.Sequence[Game]:
+    statement: Query[typing.Type[Game]] = (
+        session.query(Game)
+        .filter(
+            Game.name.like(f"%{get_search_name(game_name)}%")
+        )
+    )
+
+    return session.scalars(statement).all()
+
+
 def get_expiring_keys(
     session: Session,
         guild_id: int = 0,
@@ -61,7 +75,6 @@ def get_expiring_keys(
 ) -> typing.Tuple[List[Key], int]:
     statement: Query[typing.Type[Key]] = (
         session.query(Key)
-        .join(Game)
         .filter(
             and_(
                 or_(
@@ -173,6 +186,17 @@ def count_games(
 
 def key_exists(session: Session, key: str) -> bool:
     return bool(find_key(session=session, key=key))
+
+
+def delete_expired(session: Session) -> typing.Tuple[int, int]:
+    deleted_keys: int = session.query(Key).filter(Key.expiration < func.current_date()).delete()
+
+    game_alias = aliased(Game)
+    deleted_games: int = session.query(Game).filter(
+                    ~session.query(game_alias).join(Key).filter(Game.id == game_alias.id).exists()
+                ).delete()
+
+    return deleted_games, deleted_keys
 
 
 def _platform_search_str(platform: Platform) -> str:
