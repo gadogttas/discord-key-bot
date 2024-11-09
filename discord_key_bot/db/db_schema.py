@@ -1,8 +1,11 @@
+import logging
 from typing import Callable
 
 from sqlalchemy import Column, Integer, String
 
 from sqlalchemy.orm import declarative_base, Session
+
+logger: logging.Logger = logging.getLogger("db_schema")
 
 Base = declarative_base()
 
@@ -49,11 +52,13 @@ def upgrade(entity: str, upgrade_func: Callable, session: Session) -> None:
             new_ver = upgrade_func(current_ver)
             set_version(entity, new_ver, session=session)
         except Exception as e:
+            logger.critical("table upgrade failed", exc_info=True)
             session.rollback()
             raise e
 
         if new_ver > current_ver:
             set_version(entity, new_ver, session=session)
         elif new_ver < current_ver:
+            logger.critical(f"cannot downgrade table version {current_ver} to {new_ver}")
             session.rollback()
             raise ValueError("Cannot downgrade table version")

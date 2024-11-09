@@ -1,5 +1,6 @@
 import inspect
 import datetime
+import logging
 from typing import List
 
 from discord import Embed, Forbidden, NotFound
@@ -24,6 +25,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
         self.bot: Bot = bot
         self.db_sessionmaker: sessionmaker = db_session_maker
         self.page_size: int = page_size
+        self.logger = logging.getLogger(__name__)
 
     @commands.command()
     async def add(
@@ -58,7 +60,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
             try:
                 await ctx.message.delete()
             except (Forbidden, NotFound):
-                pass
+                self.logger.warning("Failed to clean up improper guild message", exc_info=True)
             await ctx.author.send(
                 embed=util.embed(
                     "You should really do this here, so it's only the bot giving away keys.",
@@ -123,7 +125,6 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
     ) -> None:
         """Remove a key and send to you in a PM"""
 
-
         try:
             platform: Platform = get_platform(platform_name)
         except ValueError:
@@ -148,7 +149,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
 
         key: Key = game.find_key_by_platform(platform)
         if not key:
-            await send_message(ctx=ctx, msg=util.embed("Game not found"))
+            await send_message(ctx=ctx, msg=util.embed("No keys found for this platform"))
             return
 
         msg: Embed = util.embed(

@@ -16,9 +16,11 @@ async def new(
     command_prefix: str,
     wait_time: datetime.timedelta,
     page_size: int,
-    loglevel: int = logging.INFO,
+    log_level: int = logging.INFO,
+    log_handler: logging.Handler = logging.StreamHandler(),
 ) -> Bot:
-    discord.utils.setup_logging(level=loglevel)
+    discord.utils.setup_logging(handler=log_handler, level=log_level)
+    logger = logging.getLogger("discord_key_bot.bot")
 
     bot = commands.Bot(
         command_prefix=command_prefix,
@@ -31,22 +33,22 @@ async def new(
         if not await is_bot_channel(ctx):
             return
 
-        message: str
+        message: str = ""
         if isinstance(error, commands.CommandNotFound):
             message = f"**Invalid command. Try using** `{command_prefix}help` **to figure out commands.**"
         elif isinstance(error, commands.MissingRequiredArgument):
             message = f"**Please pass in all requirements. Use** `{command_prefix}help {ctx.invoked_with}` **to see requirements.**"
         else:
-            raise error
+            logger.critical(f"{type(ctx.cog).__name__}.{ctx.invoked_with}: {error}")
 
-        if isinstance(ctx.cog, direct.DirectCommands):
-            if bool(ctx.guild):
-                await ctx.message.delete()
+        if isinstance(ctx.cog, direct.DirectCommands) and bool(ctx.guild):
+            await ctx.message.delete()
 
-        await util.send_message(
-            ctx=ctx,
-            msg=message,
-        )
+        if message:
+            await util.send_message(
+                ctx=ctx,
+                msg=message,
+            )
 
     @bot.check
     async def is_bot_channel(ctx: commands.Context) -> bool:
