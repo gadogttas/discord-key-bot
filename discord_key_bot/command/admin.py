@@ -151,6 +151,8 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
     ):
         """Set expiration on all keys for a given platform"""
 
+        self.logger.info(f"bulk_expire request from user {ctx.author.display_name}: {game_id} - {expiration}")
+
         session: Session = self.db_sessionmaker()
 
         try:
@@ -199,6 +201,8 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
     async def purge(self, ctx: commands.Context):
         """Purge expired keys and orphaned games"""
 
+        self.logger.info(f"purge request from user {ctx.author.display_name}")
+
         session: Session = self.db_sessionmaker()
 
         game_count: int
@@ -211,4 +215,37 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
             embed=util.embed(
                 title="Deleting Expired Keys",
                 text=f"{game_count} games, {key_count} keys deleted", colour=Colours.GREEN)
+            )
+
+    @commands.command()
+    @commands.is_owner()
+    async def delete(
+        self,
+        ctx: commands.Context,
+        game_id: int = commands.Parameter(
+            name="game_id",
+            displayed_name="Game ID",
+            description="The ID of the game to delete",
+            kind=inspect.Parameter.POSITIONAL_ONLY,
+        )
+    ):
+        """Purge expired keys and orphaned games"""
+
+        self.logger.info(f"delete request from user {ctx.author.display_name} for game_id {game_id}")
+
+        session: Session = self.db_sessionmaker()
+
+        game = session.get(Game, game_id)
+        if not game:
+            await ctx.author.send(embed=util.embed("Game not found", colour=Colours.RED))
+            return
+
+        session.delete(game)
+        session.flush()
+        session.commit()
+
+        await ctx.author.send(
+            embed=util.embed(
+                title="Deleting Expired Keys",
+                text=f"game_id {game_id} deleted", colour=Colours.GREEN)
             )
