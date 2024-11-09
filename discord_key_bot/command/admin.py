@@ -1,7 +1,7 @@
 import datetime
 import inspect
 import logging
-from typing import Optional
+from typing import Optional, Sequence
 
 from discord.ext import commands
 from discord.ext.commands import Bot
@@ -23,28 +23,28 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
     @commands.command()
     @commands.is_owner()
-    async def gameinfo(
+    async def gameid(
         self,
         ctx: commands.Context,
         *,
         game_name: str = commands.Parameter(
             name="game_name",
             displayed_name="Game Name",
-            description="The name of the game you wish to add a key for",
+            description="The name of the game you wish to get IDs for",
             kind=inspect.Parameter.POSITIONAL_ONLY,
         ),
      ):
-        """Load game info"""
+        """Load game IDs"""
 
         self.logger.info(f"received gameinfo request from user {ctx.author.display_name}")
 
         session: Session = self.db_sessionmaker()
 
-        game: Optional[Game] = search.get_game(
+        games: Sequence[Game] = search.get_admin_games(
             session=session, game_name=game_name
         )
 
-        if not game:
+        if not games:
             await ctx.author.send(embed=util.embed("Game not found", colour=Colours.RED))
             return
 
@@ -53,9 +53,11 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
             text="",
             colour=Colours.GREEN
         )
-        msg.add_field(name="id", value=game.id)
-        msg.add_field(name="name", value=game.name)
-        msg.add_field(name="pretty_name", value=game.pretty_name)
+
+        for game in games:
+            msg.add_field(name=game.pretty_name,
+                          value=f"**id:** {game.id}")
+
         await ctx.author.send(embed=msg)
 
     @commands.command()
@@ -105,24 +107,18 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
             text: str = f"Renaming names of existing game from '{game.pretty_name}' to '{new_name}'"
             game.pretty_name = new_name
             game.name = get_search_name(new_name)
-            session.flush()
-            session.commit()
 
             self.logger.debug(text)
             await ctx.author.send(embed=util.embed(title="Renamed game", text=text))
-            return
+        else:
+            text: str = f"Moving keys from game ID {game.id} to game ID {existing_game.id}"
+            self.logger.debug(text)
+            await ctx.author.send(embed=util.embed(title="Renaming game", text=text))
 
-        text: str = f"Moving keys from game ID {game.id} to game ID {existing_game.id}"
-        self.logger.debug(text)
-        await ctx.author.send(embed=util.embed(title="Renaming game", text=text))
+            for key in game.keys:
+                key.game_id = existing_game.id
+                key.game = existing_game
 
-        for key in game.keys:
-            key.game_id = existing_game.id
-            key.game = existing_game
-
-        session.refresh(game)
-
-        if not game.keys:
             session.delete(game)
 
         session.flush()
@@ -197,3 +193,22 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
             ctx=ctx,
             msg=util.embed(f"Set bulk expiration dates", Colours.RED),
         )
+
+    @commands.command()
+    @commands.is_owner()
+    async def purge(self, ctx: commands.Context):
+        """Purge expired keys and orphaned games"""
+
+        session: Session = self.db_sessionmaker()
+
+        game_count: int
+        key_count: int
+        game_count, key_count = search.delete_expired(session)
+        session.flush()
+        session.commit()
+
+        await ctx.author.send(
+            embed=util.embed(
+                title="Deleting Expired Keys",
+                text=f"{game_count} games, {key_count} keys deleted", colour=Colours.GREEN)
+            )
