@@ -54,12 +54,21 @@ def get_game(
 def get_admin_games(
     session: Session,
     game_name: str,
+    limit: int = DEFAULT_PAGE_SIZE,
 ) -> typing.Sequence[Game]:
     statement: Query[typing.Type[Game]] = (
         session.query(Game)
         .filter(
             Game.name.like(f"%{get_search_name(game_name)}%")
-        )
+        ).limit(limit)
+    )
+
+    return session.scalars(statement).all()
+
+
+def get_admin_members(session: Session) -> typing.Sequence[Member]:
+    statement: Query[typing.Type[Member]] = (
+        session.query(Member).filter(Member.is_admin)
     )
 
     return session.scalars(statement).all()

@@ -4,10 +4,11 @@ Miscellaneous SQLAlchemy helpers.
 
 from typing import Any, List, Optional, Union
 
-from sqlalchemy import ColumnDefault, Index, Sequence, text
+from sqlalchemy import Index, text, Column, Engine, ClauseElement
 from sqlalchemy.exc import NoSuchTableError
 from sqlalchemy.orm import Session
 from sqlalchemy.schema import MetaData, Table
+from sqlalchemy.sql.ddl import CreateColumn
 from sqlalchemy.types import TypeEngine
 
 
@@ -58,11 +59,13 @@ def table_columns(table: Union[str, Table], session: Session) -> List[str]:
     :returns: List of column names in the table or empty list
     """
 
-    res = []
     if isinstance(table, str):
         table = table_schema(table, session)
+
+    res = []
     for column in table.columns:
         res.append(column.name)
+
     return res
 
 
@@ -100,9 +103,6 @@ def table_add_column(
 ) -> None:
     """Adds a column to a table
 
-    .. warning:: Uses raw statements, probably needs to be changed in
-                 order to work on other databases besides SQLite
-
     :param string table: Table to add column to (can be name or schema)
     :param string name: Name of new column to add
     :param col_type: The sqlalchemy column type to add
@@ -111,27 +111,36 @@ def table_add_column(
     """
     if isinstance(table, str):
         table = table_schema(table, session)
+
     if name in table_columns(table, session):
         # If the column already exists, we don't have to do anything.
         return
+
     # Add the column to the table
     if not isinstance(col_type, TypeEngine):
         # If we got a type class instead of an instance of one, instantiate it
         col_type = col_type()
-    type_string = session.bind.engine.dialect.type_compiler.process(col_type)
-    statement = f'ALTER TABLE {table.name} ADD {name} {type_string}'
+
+    column = Column(name=name, type_=col_type, default=default)
+
+    # Use SQLAlchemy's reflection API to get the column DDL
+    engine: Engine = session.get_bind()
+    meta: MetaData = MetaData()
+    meta.reflect(bind=engine)
+    col_statement: ClauseElement = CreateColumn(column).compile(bind=engine).statement
+
+    # Add the column
+    statement = f'ALTER TABLE {table.name} ADD {col_statement}'
     session.execute(text(statement))
-    session.commit()
-    # Update the table with the default value if given
-    if default is not None:
-        # Get the new schema with added column
-        table = table_schema(table.name, session)
-        if not isinstance(default, (ColumnDefault, Sequence)):
-            default = ColumnDefault(default)
-        default._set_parent(getattr(table.c, name))
-        statement = table.update().values({name: default.execute(bind=session.bind)})
+
+    # Get the new schema with added column
+    table = table_schema(table.name, session)
+    column = get_column_by_name(table, name)
+
+    # Backfill the desired default value for engines that don't support defaults
+    if default is not None and not column.default:
+        statement = table.update().values({name: default})
         session.execute(statement)
-        session.commit()
 
 
 def drop_tables(names: List[str], session: Session) -> None:
@@ -140,7 +149,7 @@ def drop_tables(names: List[str], session: Session) -> None:
     metadata.reflect(bind=session.bind)
     for table in metadata.sorted_tables:
         if table.name in names:
-            table.drop()
+            table.drop(bind=session.bind)
 
 
 def get_index_by_name(table: Table, name: str) -> Optional[Index]:
@@ -169,3 +178,17 @@ def create_index(table_name: str, session: Session, *column_names: str) -> None:
     columns = [getattr(table.c, column) for column in column_names]
 
     Index(index_name, *columns).create(bind=session.bind)
+
+
+def get_column_by_name(table: Table, name: str) -> Optional[Column]:
+    """
+    Find declaratively defined column from table by name
+
+    :param table: The table
+    :param name: The name of the column
+    :return: Column object
+    """
+    try:
+        return next(column for column in table.columns if column.name == name)
+    except StopIteration:
+        return None
