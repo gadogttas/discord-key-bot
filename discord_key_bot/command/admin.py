@@ -303,16 +303,13 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         )
 
     @commands.command()
+    @commands.is_owner()
     async def purge(self, ctx: commands.Context):
         """Purge expired keys and orphaned games"""
 
         self.logger.info(f"purge request from user {ctx.author.display_name}")
 
         session: Session = self.db_sessionmaker()
-
-        if not is_admin(session, ctx):
-            self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
-            return
 
         game_count: int
         key_count: int
