@@ -1,8 +1,8 @@
 import datetime
 from typing import List, Optional
 
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
-from sqlalchemy.orm import relationship, mapped_column, Mapped, Session, declarative_base, sessionmaker
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
+from sqlalchemy.orm import relationship, mapped_column, Mapped, Session, sessionmaker
 from sqlalchemy.ext.associationproxy import association_proxy, AssociationProxy
 
 from discord_key_bot.common.util import get_search_name
@@ -80,6 +80,7 @@ class Member(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String)
     last_claim = Column(DateTime)
+    is_admin = Column(Boolean, default=False, nullable=False)
 
     _guilds: Mapped[List[Guild]] = relationship("Guild", cascade="all, delete-orphan")
     guilds: AssociationProxy[Guild] = association_proxy(
@@ -90,16 +91,35 @@ class Member(Base):
     )
 
     @staticmethod
-    def get(session: Session, member_id: int, name):
+    def get(session: Session, member_id: int, name: str):
         member = session.query(Member).filter(Member.id == member_id).first()
 
         if not member:
-            member = Member(id=member_id, name=name)
+            member = Member(id=member_id, name=name, is_admin=False)
             session.add(member)
 
         return member
 
 
+def _upgrade_member(session: Session) -> None:
+    def upgrade_func(ver: int) -> int:
+        if ver < 1:
+            sqlalchemy_helpers.table_add_column("members", "is_admin", Boolean, session, default=False)
+            ver = 1
+
+        return ver
+
+    db_schema.upgrade(entity='members', upgrade_func=upgrade_func, session=session)
+
+
 def upgrade_tables(db_session_maker: sessionmaker) -> None:
     session: Session = db_session_maker()
-    _upgrade_keys(session=session)
+
+    try:
+        _upgrade_keys(session=session)
+        _upgrade_member(session=session)
+    except Exception as e:
+        session.rollback()
+        raise e
+
+    session.commit()

@@ -2,7 +2,7 @@ import datetime
 import re
 import typing
 from math import ceil
-from typing import List, Tuple
+from typing import List
 
 import discord
 from discord.ext import commands
