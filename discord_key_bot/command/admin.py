@@ -159,7 +159,6 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         await ctx.author.send(embed=msg)
 
     @commands.command()
-    @commands.is_owner()
     async def rename(
         self,
         ctx: commands.Context,
