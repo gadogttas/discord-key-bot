@@ -188,8 +188,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
             self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
             return
 
-
-        game = session.get(Game, game_id)
+        game: Optional[Game] = session.get(Game, game_id)
 
         if not game:
             await ctx.author.send(embed=embed("Game not found", colour=Colours.RED))
@@ -324,6 +323,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
             )
 
     @commands.command()
+    @commands.is_owner()
     async def delete(
         self,
         ctx: commands.Context,
@@ -339,10 +339,6 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         self.logger.info(f"delete request from user {ctx.author.display_name} for game_id {game_id}")
 
         session: Session = self.db_sessionmaker()
-
-        if not is_admin(session, ctx):
-            self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
-            return
 
         game = session.get(Game, game_id)
         if not game:
