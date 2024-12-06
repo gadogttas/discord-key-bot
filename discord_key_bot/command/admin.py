@@ -8,7 +8,7 @@ import discord
 from discord import User
 from discord.ext import commands
 from discord.ext.commands import Bot
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 
 from discord_key_bot.command.util import is_admin
 from discord_key_bot.common.colours import Colours
@@ -19,9 +19,9 @@ from discord_key_bot.platform import Platform, get_platform
 
 
 class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidden=True)):
-    def __init__(self, bot: Bot, db_session_maker: sessionmaker, admin_role_id: int = 0):
+    def __init__(self, bot: Bot, db_sessionmaker: sessionmaker, admin_role_id: int = 0):
         self.bot: Bot = bot
-        self.db_sessionmaker: sessionmaker = db_session_maker
+        self.db_sessionmaker: sessionmaker = db_sessionmaker
         self.logger = logging.getLogger(__name__)
         self.admin_role_id = admin_role_id
 
@@ -48,13 +48,13 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         if not user:
             return
 
-        session: Session = self.db_sessionmaker()
+        with self.db_sessionmaker() as session:
 
-        member = Member.get(session, user.id, user.name)
-        member.is_admin = True
+            member = Member.get(session, user.id, user.name)
+            member.is_admin = True
 
-        session.flush()
-        session.commit()
+            session.flush()
+            session.commit()
 
         await ctx.author.send(embed=embed(f"Successfully added {user.name} as admin", colour=Colours.GREEN))
 
@@ -79,13 +79,12 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         if not user:
             return
 
-        session: Session = self.db_sessionmaker()
+        with self.db_sessionmaker() as session:
+            member = Member.get(session, user.id, user.name)
+            member.is_admin = False
 
-        member = Member.get(session, user.id, user.name)
-        member.is_admin = False
-
-        session.flush()
-        session.commit()
+            session.flush()
+            session.commit()
 
         await ctx.author.send(embed=embed(f"Successfully removed {user.name} as admin", colour=Colours.GREEN))
 
@@ -96,9 +95,8 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
         self.logger.info(f"received lsadmin request from user {ctx.author.display_name}")
 
-        session: Session = self.db_sessionmaker()
-
-        admin_users: Sequence[Member] = search.get_admin_members(session)
+        with self.db_sessionmaker() as session:
+            admin_users: Sequence[Member] = search.get_admin_members(session)
 
         if not admin_users:
             await ctx.author.send(embed=embed("No admin users found", colour=Colours.RED))
@@ -132,15 +130,14 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
         self.logger.info(f"received gameinfo request from user {ctx.author.display_name}")
 
-        session: Session = self.db_sessionmaker()
+        with self.db_sessionmaker() as session:
+            if not is_admin(session, ctx):
+                self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
+                return
 
-        if not is_admin(session, ctx):
-            self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
-            return
-
-        games: Sequence[Game] = search.get_admin_games(
-            session=session, game_name=game_name
-        )
+            games: Sequence[Game] = search.get_admin_games(
+                session=session, game_name=game_name
+            )
 
         if not games:
             await ctx.author.send(embed=embed("Game not found", colour=Colours.RED))
@@ -181,49 +178,49 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         self.logger.info(
             f"received rename request from user {ctx.author.display_name} to rename game_id {game_id} to {new_name}")
 
-        session: Session = self.db_sessionmaker()
+        with self.db_sessionmaker() as session:
 
-        if not is_admin(session, ctx):
-            self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
-            return
+            if not is_admin(session, ctx):
+                self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
+                return
 
-        game: Optional[Game] = session.get(Game, game_id)
+            game: Optional[Game] = session.get(Game, game_id)
 
-        if not game:
-            await ctx.author.send(embed=embed("Game not found", colour=Colours.RED))
-            return
+            if not game:
+                await ctx.author.send(embed=embed("Game not found", colour=Colours.RED))
+                return
 
-        if game.name == get_search_name(new_name):
-            game.pretty_name = new_name
+            if game.name == get_search_name(new_name):
+                game.pretty_name = new_name
+                session.flush()
+                session.commit()
+
+                text: str = f"Renamed display name of existing game from '{game.pretty_name}' to '{new_name}'"
+                self.logger.debug(text)
+                await ctx.author.send(embed=embed(title="Renamed game", text=text))
+                return
+
+            existing_game = search.get_game(session=session, game_name=new_name)
+            if not existing_game:
+                text: str = f"Renaming names of existing game from '{game.pretty_name}' to '{new_name}'"
+                game.pretty_name = new_name
+                game.name = get_search_name(new_name)
+
+                self.logger.debug(text)
+                await ctx.author.send(embed=embed(title="Renamed game", text=text))
+            else:
+                text: str = f"Moving keys from game ID {game.id} to game ID {existing_game.id}"
+                self.logger.debug(text)
+                await ctx.author.send(embed=embed(title="Renaming game", text=text))
+
+                for key in game.keys:
+                    key.game_id = existing_game.id
+                    key.game = existing_game
+
+                session.delete(game)
+
             session.flush()
             session.commit()
-
-            text: str = f"Renamed display name of existing game from '{game.pretty_name}' to '{new_name}'"
-            self.logger.debug(text)
-            await ctx.author.send(embed=embed(title="Renamed game", text=text))
-            return
-
-        existing_game = search.get_game(session=session, game_name=new_name)
-        if not existing_game:
-            text: str = f"Renaming names of existing game from '{game.pretty_name}' to '{new_name}'"
-            game.pretty_name = new_name
-            game.name = get_search_name(new_name)
-
-            self.logger.debug(text)
-            await ctx.author.send(embed=embed(title="Renamed game", text=text))
-        else:
-            text: str = f"Moving keys from game ID {game.id} to game ID {existing_game.id}"
-            self.logger.debug(text)
-            await ctx.author.send(embed=embed(title="Renaming game", text=text))
-
-            for key in game.keys:
-                key.game_id = existing_game.id
-                key.game = existing_game
-
-            session.delete(game)
-
-        session.flush()
-        session.commit()
 
     @commands.command()
     async def bulk_expire(
@@ -251,54 +248,54 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
     ):
         """Set expiration on all keys for a given platform"""
 
-        self.logger.info(f"bulk_expire request from user {ctx.author.display_name}: {game_id} - {expiration}")
+        self.logger.info(f"bulk_expire request from user {ctx.author.display_name}: {game_id} - {expiration}")      
 
-        session: Session = self.db_sessionmaker()
+        with self.db_sessionmaker() as session:
+            if not is_admin(session, ctx):
+                self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
+                return
 
-        if not is_admin(session, ctx):
-            self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
-            return
+            try:
+                platform: Platform = get_platform(platform_name)
+            except ValueError:
+                await ctx.author.send(
+                    embed=embed(f'"{platform_name}" is not valid platform', Colours.RED),
+                )
+                return
 
-        try:
-            platform: Platform = get_platform(platform_name)
-        except ValueError:
-            await ctx.author.send(
-                embed=embed(f'"{platform_name}" is not valid platform', Colours.RED),
-            )
-            return
+            game = session.get(Game, game_id)
 
-        game = session.get(Game, game_id)
-        if not game:
-            await ctx.author.send(embed=embed("Game not found", colour=Colours.RED))
-            return
+            if not game:
+                await ctx.author.send(embed=embed("Game not found", colour=Colours.RED))
+                return
 
-        try:
-            expiration_date = datetime.datetime.strptime(expiration, "%b %d %Y")
-        except ValueError:
+            try:
+                expiration_date = datetime.datetime.strptime(expiration, "%b %d %Y")
+            except ValueError:
+                await send_message(
+                    ctx=ctx,
+                    msg=embed(f"Failed to parse expiration date.", Colours.RED),
+                )
+                return
+
+            if expiration_date.date() <= datetime.datetime.now(datetime.UTC).date():
+                await send_message(
+                    ctx=ctx,
+                    msg=embed(f"Expiration date is in the past.", Colours.RED),
+                )
+                return
+
+            for key in game.keys:
+                if key.platform == platform.search_name:
+                    key.expiration = expiration_date
+
+            session.flush()
+            session.commit()
+
             await send_message(
                 ctx=ctx,
-                msg=embed(f"Failed to parse expiration date.", Colours.RED),
+                msg=embed(f"Set bulk expiration dates", Colours.RED),
             )
-            return
-
-        if expiration_date.date() <= datetime.datetime.now(datetime.UTC).date():
-            await send_message(
-                ctx=ctx,
-                msg=embed(f"Expiration date is in the past.", Colours.RED),
-            )
-            return
-
-        for key in game.keys:
-            if key.platform == platform.search_name:
-                key.expiration = expiration_date
-
-        session.flush()
-        session.commit()
-
-        await send_message(
-            ctx=ctx,
-            msg=embed(f"Set bulk expiration dates", Colours.RED),
-        )
 
     @commands.command()
     @commands.is_owner()
@@ -307,13 +304,13 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
         self.logger.info(f"purge request from user {ctx.author.display_name}")
 
-        session: Session = self.db_sessionmaker()
-
         game_count: int
         key_count: int
-        game_count, key_count = search.delete_expired(session)
-        session.flush()
-        session.commit()
+
+        with self.db_sessionmaker() as session:
+            game_count, key_count = search.delete_expired(session)
+            session.flush()
+            session.commit()
 
         await ctx.author.send(
             embed=embed(
@@ -337,22 +334,21 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
         self.logger.info(f"delete request from user {ctx.author.display_name} for game_id {game_id}")
 
-        session: Session = self.db_sessionmaker()
+        with self.db_sessionmaker() as session:
+            game = session.get(Game, game_id)
+            if not game:
+                await ctx.author.send(embed=embed("Game not found", colour=Colours.RED))
+                return
 
-        game = session.get(Game, game_id)
-        if not game:
-            await ctx.author.send(embed=embed("Game not found", colour=Colours.RED))
-            return
+            session.delete(game)
+            session.flush()
+            session.commit()
 
-        session.delete(game)
-        session.flush()
-        session.commit()
-
-        await ctx.author.send(
-            embed=embed(
-                title="Deleting Expired Keys",
-                text=f"game_id {game_id} deleted", colour=Colours.GREEN)
-            )
+            await ctx.author.send(
+                embed=embed(
+                    title="Deleting Expired Keys",
+                    text=f"game_id {game_id} deleted", colour=Colours.GREEN)
+                )
 
     async def _get_user(self, ctx: commands.Context, user_str: str) -> Optional[discord.User]:
         match: re.Match = self._member_patt.match(user_str)

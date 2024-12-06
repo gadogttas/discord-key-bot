@@ -13,7 +13,7 @@ def new(uri: str, connection_timeout: str = 15) -> sessionmaker:
     )
     Base.metadata.create_all(engine)
 
-    db_session_maker = sessionmaker(bind=engine)
-    upgrade_tables(db_session_maker)
+    db_sessionmaker = sessionmaker(bind=engine)
+    upgrade_tables(db_sessionmaker)
 
-    return db_session_maker
+    return db_sessionmaker

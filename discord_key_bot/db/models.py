@@ -112,14 +112,13 @@ def _upgrade_member(session: Session) -> None:
     db_schema.upgrade(entity='members', upgrade_func=upgrade_func, session=session)
 
 
-def upgrade_tables(db_session_maker: sessionmaker) -> None:
-    session: Session = db_session_maker()
+def upgrade_tables(db_sessionmaker: sessionmaker) -> None:
+    with db_sessionmaker() as session:
+        try:
+            _upgrade_keys(session=session)
+            _upgrade_member(session=session)
+        except Exception as e:
+            session.rollback()
+            raise e
 
-    try:
-        _upgrade_keys(session=session)
-        _upgrade_member(session=session)
-    except Exception as e:
-        session.rollback()
-        raise e
-
-    session.commit()
+        session.commit()

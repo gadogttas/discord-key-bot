@@ -11,7 +11,7 @@ from discord_key_bot.common import util
 
 
 async def new(
-    db_session_maker: sessionmaker,
+    db_sessionmaker: sessionmaker,
     bot_channel_id: int,
     command_prefix: str,
     wait_time: datetime.timedelta,
@@ -55,8 +55,8 @@ async def new(
         return not bool(ctx.guild) or ctx.channel.id == bot_channel_id
 
     # register cogs
-    await bot.add_cog(guild.GuildCommands(bot, db_session_maker, wait_time, page_size))
-    await bot.add_cog(direct.DirectCommands(bot, db_session_maker, page_size))
-    await bot.add_cog(admin.AdminCommands(bot, db_session_maker))
+    await bot.add_cog(guild.GuildCommands(bot, db_sessionmaker, wait_time, page_size))
+    await bot.add_cog(direct.DirectCommands(bot, db_sessionmaker, page_size))
+    await bot.add_cog(admin.AdminCommands(bot, db_sessionmaker))
 
     return bot

@@ -40,11 +40,11 @@ async def start():
 
     token: str = os.environ["TOKEN"]
 
-    db_session_maker: sessionmaker = connection.new(sqlalchemy_uri)
+    db_sessionmaker: sessionmaker = connection.new(sqlalchemy_uri)
     logger.info("Successfully initialized database connection")
 
     bot = await discord_key_bot.bot.new(
-        db_session_maker=db_session_maker,
+        db_sessionmaker=db_sessionmaker,
         bot_channel_id=bot_channel_id,
         wait_time=wait_time,
         command_prefix=command_prefix,

@@ -4,7 +4,7 @@ import datetime
 from discord import Embed
 from discord.ext import commands
 from discord.ext.commands import Bot
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 from typing import List, Optional
 
 from discord_key_bot.common import util
@@ -20,13 +20,13 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     def __init__(
         self,
         bot: Bot,
-        db_session_maker: sessionmaker,
+        db_sessionmaker: sessionmaker,
         wait_time: datetime.timedelta,
         page_size: int,
     ):
         self.bot: Bot = bot
         self.wait_time: datetime.timedelta = wait_time
-        self.db_session_maker: sessionmaker = db_session_maker
+        self.db_sessionmaker: sessionmaker = db_sessionmaker
         self.page_size: int = page_size
 
     @commands.command()
@@ -43,15 +43,14 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     ) -> None:
         """Search available games"""
 
-        session: Session = self.db_session_maker()
-
-        games: List[GamePlatformCount] = search.get_paginated_games(
-            session=session,
-            title=game_name,
-            guild_id=ctx.guild.id,
-            per_page=self.page_size,
-            sort=SortOrder.TITLE,
-        )
+        with self.db_sessionmaker() as session:
+            games: List[GamePlatformCount] = search.get_paginated_games(
+                session=session,
+                title=game_name,
+                guild_id=ctx.guild.id,
+                per_page=self.page_size,
+                sort=SortOrder.TITLE,
+            )
 
         msg = util.build_page_message(
             title="Search Results",
@@ -109,20 +108,19 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             )
             return
 
-        session: Session = self.db_session_maker()
+        with self.db_sessionmaker() as session:
+            games: List[GamePlatformCount] = search.get_paginated_games(
+                session=session,
+                platform=platform,
+                guild_id=ctx.guild.id,
+                per_page=self.page_size,
+                page=page,
+                sort=SortOrder.TITLE,
+            )
 
-        games: List[GamePlatformCount] = search.get_paginated_games(
-            session=session,
-            platform=platform,
-            guild_id=ctx.guild.id,
-            per_page=self.page_size,
-            page=page,
-            sort=SortOrder.TITLE,
-        )
-
-        total: int = search.count_games(
-            session=session, guild_id=ctx.guild.id, platform=platform
-        )
+            total: int = search.count_games(
+                session=session, guild_id=ctx.guild.id, platform=platform
+            )
 
         msg = util.embed(
             get_page_header_text(page, total, self.page_size),
@@ -149,17 +147,16 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     ) -> None:
         """Browse through available games"""
 
-        session: Session = self.db_session_maker()
+        with self.db_sessionmaker() as session:
+            games: List[GamePlatformCount] = search.get_paginated_games(
+                session=session,
+                guild_id=ctx.guild.id,
+                page=page,
+                per_page=self.page_size,
+                sort=SortOrder.TITLE,
+            )
 
-        games: List[GamePlatformCount] = search.get_paginated_games(
-            session=session,
-            guild_id=ctx.guild.id,
-            page=page,
-            per_page=self.page_size,
-            sort=SortOrder.TITLE,
-        )
-
-        total: int = search.count_games(session=session, guild_id=ctx.guild.id)
+            total: int = search.count_games(session=session, guild_id=ctx.guild.id)
 
         msg: Embed = util.build_page_message(
             title="Browse Games",
@@ -183,17 +180,16 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     ) -> None:
         """Browse through available games by date added in descending order"""
 
-        session: Session = self.db_session_maker()
+        with self.db_sessionmaker() as session:
+            games: List[GamePlatformCount] = search.get_paginated_games(
+                session=session,
+                guild_id=ctx.guild.id,
+                page=page,
+                per_page=self.page_size,
+                sort=SortOrder.LATEST,
+            )
 
-        games: List[GamePlatformCount] = search.get_paginated_games(
-            session=session,
-            guild_id=ctx.guild.id,
-            page=page,
-            per_page=self.page_size,
-            sort=SortOrder.LATEST,
-        )
-
-        total: int = search.count_games(session=session, guild_id=ctx.guild.id)
+            total: int = search.count_games(session=session, guild_id=ctx.guild.id)
 
         msg: Embed = util.build_page_message(
             title="Latest Games",
@@ -207,16 +203,15 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     async def random(self, ctx: commands.Context) -> None:
         """Display random available games"""
 
-        session: Session = self.db_session_maker()
+        with self.db_sessionmaker() as session:
+            games: List[GamePlatformCount] = search.get_paginated_games(
+                session=session,
+                guild_id=ctx.guild.id,
+                per_page=self.page_size,
+                sort=SortOrder.RANDOM,
+            )
 
-        games: List[GamePlatformCount] = search.get_paginated_games(
-            session=session,
-            guild_id=ctx.guild.id,
-            per_page=self.page_size,
-            sort=SortOrder.RANDOM,
-        )
-
-        total: int = search.count_games(session=session, guild_id=ctx.guild.id)
+            total: int = search.count_games(session=session, guild_id=ctx.guild.id)
 
         msg = util.embed(
             f"Showing {min(self.page_size, total)} random games of {total} total",
@@ -231,54 +226,53 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     @commands.command()
     async def share(self, ctx: commands.Context) -> None:
         """Share your keys with this guild"""
-        session: Session = self.db_session_maker()
 
-        member: Member = Member.get(session, ctx.author.id, ctx.author.name)
-
-        if ctx.guild.id in member.guilds:
-            await send_message(
-                ctx=ctx,
-                msg=util.embed(f"You are already sharing with {ctx.guild.name}", colour=Colours.GOLD)
-            )
-        else:
-            member.guilds.append(ctx.guild.id)
-            game_count: int = search.count_games(
-                session=session, guild_id=ctx.guild.id
-            )
-            session.commit()
-            await send_message(
-                ctx=ctx,
-                msg=util.embed(
-                    f"Thanks {ctx.author.name}! Your keys are now available on {ctx.guild.name}. There are now {game_count} games available.",
-                    colour=Colours.GREEN,
+        with self.db_sessionmaker() as session:
+            member: Member = Member.get(session, ctx.author.id, ctx.author.name)
+            if ctx.guild.id in member.guilds:
+                await send_message(
+                    ctx=ctx,
+                    msg=util.embed(f"You are already sharing with {ctx.guild.name}", colour=Colours.GOLD)
                 )
-            )
+            else:
+                member.guilds.append(ctx.guild.id)
+                game_count: int = search.count_games(
+                    session=session, guild_id=ctx.guild.id
+                )
+                session.commit()
+                await send_message(
+                    ctx=ctx,
+                    msg=util.embed(
+                        f"Thanks {ctx.author.name}! Your keys are now available on {ctx.guild.name}. There are now {game_count} games available.",
+                        colour=Colours.GREEN,
+                    )
+                )
 
     @commands.command()
     async def unshare(self, ctx: commands.Context) -> None:
         """Remove this guild from the guilds you share keys with"""
-        session: Session = self.db_session_maker()
-        member: Member = Member.get(session, ctx.author.id, ctx.author.name)
+        with self.db_sessionmaker() as session:
+            member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
-        if ctx.guild.id not in member.guilds:
-            await send_message(
-                ctx=ctx,
-                msg=util.embed(
-                    f"You aren't currently sharing with {ctx.guild.name}",
-                    colour=Colours.GOLD,
-                ),
-            )
-        else:
-            member.guilds.remove(ctx.guild.id)
-            game_count: int = search.count_games(session=session, guild_id=ctx.guild.id)
-            session.commit()
-            await send_message(
-                ctx=ctx,
-                msg=util.embed(
-                    f"Thanks {ctx.author.name}! You have removed {ctx.guild.name} from sharing. There are now {game_count} games available.",
-                    colour=Colours.GREEN,
-                ),
-            )
+            if ctx.guild.id not in member.guilds:
+                await send_message(
+                    ctx=ctx,
+                    msg=util.embed(
+                        f"You aren't currently sharing with {ctx.guild.name}",
+                        colour=Colours.GOLD,
+                    ),
+                )
+            else:
+                member.guilds.remove(ctx.guild.id)
+                game_count: int = search.count_games(session=session, guild_id=ctx.guild.id)
+                session.commit()
+                await send_message(
+                    ctx=ctx,
+                    msg=util.embed(
+                        f"Thanks {ctx.author.name}! You have removed {ctx.guild.name} from sharing. There are now {game_count} games available.",
+                        colour=Colours.GREEN,
+                    ),
+                )
 
     @commands.command()
     async def claim(
@@ -299,63 +293,63 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         ),
     ) -> None:
         """Claims a game from available keys"""
-        session: Session = self.db_session_maker()
+        with self.db_sessionmaker() as session:
+            member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
-        member: Member = Member.get(session, ctx.author.id, ctx.author.name)
-        timeleft = self._get_cooldown(member)
-        if timeleft.total_seconds() > 0:
-            await send_message(
-                ctx=ctx,
-                msg=util.embed(
-                    f"You must wait {util.pretty_timedelta(timeleft)} until your next claim",
-                    colour=Colours.RED,
-                    title="Failed to claim",
-                ),
+            timeleft = self._get_cooldown(member)
+            if timeleft.total_seconds() > 0:
+                await send_message(
+                    ctx=ctx,
+                    msg=util.embed(
+                        f"You must wait {util.pretty_timedelta(timeleft)} until your next claim",
+                        colour=Colours.RED,
+                        title="Failed to claim",
+                    ),
+                )
+                return
+
+            try:
+                platform: Platform = get_platform(platform_name)
+            except ValueError:
+                await send_message(
+                    ctx=ctx,
+                    msg=util.embed(
+                        f'"{platform_name}" is not valid platform',
+                        colour=Colours.RED,
+                        title="Failed to claim",
+                    ),
+                )
+                return
+
+            game: Optional[Game] = search.get_game(
+                session, game_name, ctx.guild.id
             )
-            return
 
-        try:
-            platform: Platform = get_platform(platform_name)
-        except ValueError:
-            await send_message(
-                ctx=ctx,
-                msg=util.embed(
-                    f'"{platform_name}" is not valid platform',
-                    colour=Colours.RED,
-                    title="Failed to claim",
-                ),
+            if not game:
+                await send_message(ctx=ctx, msg=util.embed("Game not found"))
+                return
+
+            try:
+                key: Key = game.find_key_by_platform(platform)
+            except ValueError:
+                await send_message(ctx=ctx, msg=util.embed("No keys found for the specified platform"))
+                return
+
+            msg: Embed = util.embed(
+                f"Please find your key below", title="Game claimed!", colour=Colours.GREEN
             )
-            return
 
-        game: Optional[Game] = search.get_game(
-            session, game_name, ctx.guild.id
-        )   
+            msg.add_field(name=game.pretty_name, value=key.key)
 
-        if not game:
-            await send_message(ctx=ctx, msg=util.embed("Game not found"))
-            return
+            session.delete(key)
+            session.refresh(game)
 
-        try:
-            key: Key = game.find_key_by_platform(platform)
-        except ValueError:
-            await send_message(ctx=ctx, msg=util.embed("No keys found for the specified platform"))
-            return
+            if not game.keys:
+                session.delete(game)
 
-        msg: Embed = util.embed(
-            f"Please find your key below", title="Game claimed!", colour=Colours.GREEN
-        )
-
-        msg.add_field(name=game.pretty_name, value=key.key)
-
-        session.delete(key)
-        session.refresh(game)
-
-        if not game.keys:
-            session.delete(game)
-
-        if key.creator_id != member.id:
-            member.last_claim = datetime.datetime.now(datetime.UTC)
-        session.commit()
+            if key.creator_id != member.id:
+                member.last_claim = datetime.datetime.now(datetime.UTC)
+            session.commit()
 
         await ctx.author.send(embed=msg)
         await send_message(
@@ -391,17 +385,16 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             )
             return
 
-        session: Session = self.db_session_maker()
+        with self.db_sessionmaker() as session:
+            games: List[GamePlatformCount] = search.get_paginated_games(
+                session=session,
+                guild_id=ctx.guild.id,
+                platform=platform,
+                per_page=1,
+                sort=SortOrder.RANDOM,
+            )
 
-        games: List[GamePlatformCount] = search.get_paginated_games(
-            session=session,
-            guild_id=ctx.guild.id,
-            platform=platform,
-            per_page=1,
-            sort=SortOrder.RANDOM,
-        )
-
-        total: int = search.count_games(session=session, guild_id=ctx.guild.id, platform=platform)
+            total: int = search.count_games(session=session, guild_id=ctx.guild.id, platform=platform)
 
         msg = util.embed(
             f"Showing one random game of {total} total",
@@ -430,32 +423,31 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     ) -> None:
         """Keys expiring soon"""
 
-        session: Session = self.db_session_maker()
-
         keys: List[Key]
         count: int
 
-        keys, count = search.get_expiring_keys(
-            session=session,
-            guild_id=ctx.guild.id,
-            page=page,
-            per_page=self.page_size,
-        )
-
-        if not keys:
-            await send_message(ctx=ctx, msg=util.embed("No keys found"))
-            return
-
-        msg: Embed = util.embed(title="Expiring Keys",
-                                text=get_page_header_text(page, count, self.page_size, "keys"))
-
-        for key in keys:
-            platform: Platform = get_platform(key.platform)
-            datestr: str = datetime.datetime.strftime(key.expiration, "%b %d %Y")
-            msg.add_field(
-                name=key.game.pretty_name,
-                value=f"{platform.name} : {datestr}"
+        with self.db_sessionmaker() as session:
+            keys, count = search.get_expiring_keys(
+                session=session,
+                guild_id=ctx.guild.id,
+                page=page,
+                per_page=self.page_size,
             )
+
+            if not keys:
+                await send_message(ctx=ctx, msg=util.embed("No keys found"))
+                return
+
+            msg: Embed = util.embed(title="Expiring Keys",
+                                    text=get_page_header_text(page, count, self.page_size, "keys"))
+
+            for key in keys:
+                platform: Platform = get_platform(key.platform)
+                datestr: str = datetime.datetime.strftime(key.expiration, "%b %d %Y")
+                msg.add_field(
+                    name=key.game.pretty_name,
+                    value=f"{platform.name} : {datestr}"
+                )
 
         await send_message(ctx=ctx, msg=msg)
 
