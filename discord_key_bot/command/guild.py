@@ -351,13 +351,13 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 member.last_claim = datetime.datetime.now(datetime.UTC)
             session.commit()
 
-        await ctx.author.send(embed=msg)
-        await send_message(
-            ctx=ctx,
-            msg=util.embed(
-                f'"{game.pretty_name}" claimed by {ctx.author.display_name}. Check your PMs for more info. Enjoy!'
-            ),
-        )
+            await ctx.author.send(embed=msg)
+            await send_message(
+                ctx=ctx,
+                msg=util.embed(
+                    f'"{game.pretty_name}" claimed by {ctx.author.display_name}. Check your PMs for more info. Enjoy!'
+                ),
+            )
 
     @commands.command()
     async def imfeelinglucky(
