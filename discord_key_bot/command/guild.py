@@ -23,11 +23,13 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         db_sessionmaker: sessionmaker,
         wait_time: datetime.timedelta,
         page_size: int,
+        expiration_waiver_period: datetime.timedelta,
     ):
         self.bot: Bot = bot
         self.wait_time: datetime.timedelta = wait_time
         self.db_sessionmaker: sessionmaker = db_sessionmaker
         self.page_size: int = page_size
+        self.expiration_waiver_period: datetime.timedelta = expiration_waiver_period
 
     @commands.command()
     async def search(
@@ -296,18 +298,6 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         with self.db_sessionmaker() as session:
             member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
-            timeleft = self._get_cooldown(member)
-            if timeleft.total_seconds() > 0:
-                await send_message(
-                    ctx=ctx,
-                    msg=util.embed(
-                        f"You must wait {util.pretty_timedelta(timeleft)} until your next claim",
-                        colour=Colours.RED,
-                        title="Failed to claim",
-                    ),
-                )
-                return
-
             try:
                 platform: Platform = get_platform(platform_name)
             except ValueError:
@@ -335,11 +325,19 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 await send_message(ctx=ctx, msg=util.embed("No keys found for the specified platform"))
                 return
 
-            msg: Embed = util.embed(
-                f"Please find your key below", title="Game claimed!", colour=Colours.GREEN
-            )
+            is_waiver_claim: bool = self._is_in_waiver_period(key)
 
-            msg.add_field(name=game.pretty_name, value=key.key)
+            timeleft = self._get_cooldown(member)
+            if not is_waiver_claim and timeleft.total_seconds() > 0:
+                await send_message(
+                    ctx=ctx,
+                    msg=util.embed(
+                        f"You must wait {util.pretty_timedelta(timeleft)} until your next claim",
+                        colour=Colours.RED,
+                        title="Failed to claim",
+                    ),
+                )
+                return
 
             session.delete(key)
             session.refresh(game)
@@ -347,16 +345,30 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             if not game.keys:
                 session.delete(game)
 
-            if key.creator_id != member.id:
+            if key.creator_id != member.id and not is_waiver_claim:
                 member.last_claim = datetime.datetime.now(datetime.UTC)
             session.commit()
 
-            await ctx.author.send(embed=msg)
+            claim_msg: Embed = util.embed(
+                f"Please find your key below", title="Game claimed!", colour=Colours.GREEN
+            )
+
+            claim_msg.add_field(name=game.pretty_name, value=key.key)
+            await ctx.author.send(embed=claim_msg)
+
+            if is_waiver_claim:
+                channel_msg: Embed = util.embed(
+                    f'"Thanks for adopting "{game.pretty_name}" before it expires, {ctx.author.display_name}! ' +
+                    'There is no cooldown for claiming this key.'
+                )
+            else:
+                channel_msg: Embed = util.embed(
+                    f'"{game.pretty_name}" claimed by {ctx.author.display_name}. Check your PMs for more info. Enjoy!'
+                )
+
             await send_message(
                 ctx=ctx,
-                msg=util.embed(
-                    f'"{game.pretty_name}" claimed by {ctx.author.display_name}. Check your PMs for more info. Enjoy!'
-                ),
+                msg=channel_msg,
             )
 
     @commands.command()
@@ -457,3 +469,11 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             return last_claim - datetime.datetime.now(datetime.UTC) + self.wait_time
 
         return datetime.timedelta(0)
+
+    def _is_in_waiver_period(self, key: Key) -> bool:
+        if key.expiration:
+            expiration_delta: datetime.timedelta = (key.expiration.replace(tzinfo=datetime.UTC) -
+                                                    datetime.datetime.now(datetime.UTC))
+            return expiration_delta <= self.expiration_waiver_period
+
+        return False
