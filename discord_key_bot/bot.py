@@ -16,6 +16,7 @@ async def new(
     command_prefix: str,
     wait_time: datetime.timedelta,
     page_size: int,
+    expiration_waiver_period: datetime.timedelta,
     log_level: int = logging.INFO,
     log_handler: logging.Handler = logging.StreamHandler(),
 ) -> Bot:
@@ -55,7 +56,7 @@ async def new(
         return not bool(ctx.guild) or ctx.channel.id == bot_channel_id
 
     # register cogs
-    await bot.add_cog(guild.GuildCommands(bot, db_sessionmaker, wait_time, page_size))
+    await bot.add_cog(guild.GuildCommands(bot, db_sessionmaker, wait_time, page_size, expiration_waiver_period))
     await bot.add_cog(direct.DirectCommands(bot, db_sessionmaker, page_size))
     await bot.add_cog(admin.AdminCommands(bot, db_sessionmaker))
 

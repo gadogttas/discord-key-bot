@@ -40,6 +40,9 @@ async def start():
 
     token: str = os.environ["TOKEN"]
 
+    expiration_waiver_period: timedelta = timedelta(seconds=int(os.environ.get("EXPIRATION_WAIVER_PERIOD", 604800)))
+    logger.debug(f"Expiring key cooldown waiver period: {expiration_waiver_period}")
+
     db_sessionmaker: sessionmaker = connection.new(sqlalchemy_uri)
     logger.info("Successfully initialized database connection")
 
@@ -49,8 +52,9 @@ async def start():
         wait_time=wait_time,
         command_prefix=command_prefix,
         page_size=page_size,
+        expiration_waiver_period=expiration_waiver_period,
         log_level=log_level,
-        log_handler=logging.StreamHandler()
+        log_handler=logging.StreamHandler(),
     )
 
     await bot.start(token)
