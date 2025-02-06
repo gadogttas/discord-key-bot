@@ -222,8 +222,8 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
                 session.flush()
 
                 session.delete(game)
-                session.flush()
 
+            session.flush()
             session.commit()
 
     @commands.command()
@@ -334,7 +334,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
             kind=inspect.Parameter.POSITIONAL_ONLY,
         )
     ):
-        """Purge expired keys and orphaned games"""
+        """Delete a game and all associated keys"""
 
         self.logger.info(f"delete request from user {ctx.author.display_name} for game_id {game_id}")
 
