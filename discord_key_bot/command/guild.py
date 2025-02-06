@@ -358,7 +358,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
 
             if is_waiver_claim:
                 channel_msg: Embed = util.embed(
-                    f'"Thanks for adopting "{game.pretty_name}" before it expires, {ctx.author.display_name}! ' +
+                    f'Thanks for adopting "{game.pretty_name}" before it expires, {ctx.author.display_name}! ' +
                     'There is no cooldown for claiming this key.'
                 )
             else:
