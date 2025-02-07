@@ -91,12 +91,11 @@ switch: Platform = Platform(
 )
 
 battleNet: Platform = Platform(
-    name="Battle.Net",
+    name="Battle.net",
     key_regexes=[
-        r"^[a-zA-Z0-9]{20}$",
         r"^[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}$"
     ],
-    example_keys=["ABCDABCDABCDABCDABCD (20 chars)", "ABCD-ABCD-ABCD-ABCD-ABCD"],
+    example_keys=["ABCD-ABCD-ABCDE-ABCD-ABCD"],
 )
 
 
