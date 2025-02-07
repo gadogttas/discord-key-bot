@@ -90,6 +90,15 @@ switch: Platform = Platform(
     example_keys=["ABCDABCDABCDABCD (16 chars)"],
 )
 
+battleNet: Platform = Platform(
+    name="Battle.Net",
+    key_regexes=[
+        r"^[a-zA-Z0-9]{20}$",
+        r"^[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}$"
+    ],
+    example_keys=["ABCDABCDABCDABCDABCD (20 chars)", "ABCD-ABCD-ABCD-ABCD-ABCD"],
+)
+
 
 # TODO: should I make a registry class for these?
 _all_platforms: Dict[str, Platform] = {
@@ -101,11 +110,12 @@ _all_platforms: Dict[str, Platform] = {
     xbox.search_name: xbox,
     switch.search_name: switch,
     windows.search_name: windows,
+    battleNet.search_name: battleNet,
 }
 
 
 def all_platforms() -> Iterable[Platform]:
-    return _all_platforms.values()
+    return [platform for _, platform in sorted(_all_platforms.items())]
 
 
 def get_platform(platform_name: str) -> Platform:
