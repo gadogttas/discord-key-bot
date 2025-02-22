@@ -6,6 +6,7 @@ class SortOrder(Enum):
     TITLE = 1
     LATEST = 2
     RANDOM = 3
+    EXPIRATION = 4
 
 
 _paginated_game_template: str = """
@@ -13,7 +14,8 @@ WITH platform_games AS (
     SELECT 
         games.id as game_id,
         games.pretty_name AS game_name, 
-        keys.platform AS platform, 
+        keys.platform AS platform,
+        IIF(:expiring_only = 1, keys.expiration, NULL) AS expiration,
         count(keys.id) AS key_count 
     FROM 
         games 
@@ -25,7 +27,7 @@ WITH platform_games AS (
         (:member_id = 0 OR members.id = :member_id)
         AND (:platform = '' OR keys.platform = :platform)
         AND (:search_args = '' OR games.name LIKE '%' || :search_args || '%')
-        AND (keys.expiration IS NULL OR keys.expiration > CURRENT_DATE)
+        AND ((keys.expiration IS NULL AND :expiring_only = 0) OR keys.expiration > CURRENT_DATE)
         AND ( 
             :guild_id = 0 
             OR EXISTS (
@@ -49,7 +51,7 @@ page AS (
 )
 
 SELECT 
-    game_name, platform, key_count 
+    game_name, platform, expiration, key_count 
 FROM 
     platform_games 
     JOIN page
@@ -68,6 +70,9 @@ paginated_queries: Dict[SortOrder, str] = {
     SortOrder.RANDOM: _paginated_game_template.format(
         "RANDOM()", "LOWER(game_name) ASC"
     ),
+    SortOrder.EXPIRATION: _paginated_game_template.format(
+        "expiration ASC", "expiration ASC, LOWER(game_name) ASC"
+    ),
 }
 
 count_games: str = """
@@ -85,6 +90,7 @@ count_games: str = """
             keys.game_id = games.id
             AND (:member_id = 0 OR members.id = :member_id)
             AND (:platform = '' OR keys.platform = :platform)
+            AND ((keys.expiration IS NULL AND :expiring_only = 0) OR keys.expiration > CURRENT_DATE)
             AND (
                 :guild_id = 0 
                 OR EXISTS (

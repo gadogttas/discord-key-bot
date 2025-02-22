@@ -12,7 +12,7 @@ from discord_key_bot.db import search
 from discord_key_bot.db.models import Member, Key, Game
 from discord_key_bot.db.queries import SortOrder
 from discord_key_bot.platform import all_platforms, get_platform, Platform
-from discord_key_bot.common.util import GamePlatformCount, send_message, get_page_header_text
+from discord_key_bot.common.util import GameKeyCount, send_message, get_page_header_text
 from discord_key_bot.common.colours import Colours
 
 
@@ -46,7 +46,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         """Search available games"""
 
         with self.db_sessionmaker() as session:
-            games: List[GamePlatformCount] = search.get_paginated_games(
+            games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 title=game_name,
                 guild_id=ctx.guild.id,
@@ -111,7 +111,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             return
 
         with self.db_sessionmaker() as session:
-            games: List[GamePlatformCount] = search.get_paginated_games(
+            games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 platform=platform,
                 guild_id=ctx.guild.id,
@@ -150,7 +150,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         """Browse through available games"""
 
         with self.db_sessionmaker() as session:
-            games: List[GamePlatformCount] = search.get_paginated_games(
+            games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,
                 page=page,
@@ -183,7 +183,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         """Browse through available games by date added in descending order"""
 
         with self.db_sessionmaker() as session:
-            games: List[GamePlatformCount] = search.get_paginated_games(
+            games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,
                 page=page,
@@ -206,7 +206,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         """Display random available games"""
 
         with self.db_sessionmaker() as session:
-            games: List[GamePlatformCount] = search.get_paginated_games(
+            games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,
                 per_page=self.page_size,
@@ -398,7 +398,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             return
 
         with self.db_sessionmaker() as session:
-            games: List[GamePlatformCount] = search.get_paginated_games(
+            games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,
                 platform=platform,
@@ -435,31 +435,31 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     ) -> None:
         """Keys expiring soon"""
 
-        keys: List[Key]
         count: int
 
         with self.db_sessionmaker() as session:
-            keys, count = search.get_expiring_keys(
+            games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,
-                page=page,
                 per_page=self.page_size,
+                page=page,
+                sort=SortOrder.EXPIRATION,
+                expiring_only=True,
             )
 
-            if not keys:
+            total: int = search.count_games(
+                session=session, guild_id=ctx.guild.id, expiring_only=True
+            )
+
+            if not games:
                 await send_message(ctx=ctx, msg=util.embed("No keys found"))
                 return
 
             msg: Embed = util.embed(title="Expiring Keys",
-                                    text=get_page_header_text(page, count, self.page_size, "keys"))
+                                    text=get_page_header_text(page, total, self.page_size, "keys"))
 
-            for key in keys:
-                platform: Platform = get_platform(key.platform)
-                datestr: str = datetime.datetime.strftime(key.expiration, "%b %d %Y")
-                msg.add_field(
-                    name=key.game.pretty_name,
-                    value=f"{platform.name} : {datestr}"
-                )
+            for game in games:
+                msg.add_field(name=game.name, value=game.platforms_string())
 
         await send_message(ctx=ctx, msg=msg)
 

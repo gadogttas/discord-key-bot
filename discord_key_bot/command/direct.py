@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 from discord_key_bot.common import util
 from discord_key_bot.db.models import Game, Key, Member
-from discord_key_bot.common.util import GamePlatformCount, send_message, get_page_header_text
+from discord_key_bot.common.util import GameKeyCount, send_message, get_page_header_text
 from discord_key_bot.db.queries import SortOrder
 from discord_key_bot.platform import Platform, get_platform
 from discord_key_bot.common.colours import Colours
@@ -190,7 +190,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
         with self.db_sessionmaker() as session:
             member = Member.get(session, ctx.author.id, ctx.author.name)
 
-            games: List[GamePlatformCount] = search.get_paginated_games(
+            games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 page=page,
                 per_page=self.page_size,

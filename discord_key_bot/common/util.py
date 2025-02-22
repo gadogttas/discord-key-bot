@@ -13,20 +13,20 @@ from discord_key_bot.platform import Platform
 RETRIES: int = 3
 
 
-class PlatformCount(typing.NamedTuple):
-    platform: Platform
+class KeyCount(typing.NamedTuple):
+    label: str
     count: int
 
     def __str__(self) -> str:
-        return f"{self.platform.name}: {self.count}"
+        return f"{self.label}: {self.count}"
 
 
-class GamePlatformCount(typing.NamedTuple):
+class GameKeyCount(typing.NamedTuple):
     name: str
-    platforms: List[PlatformCount]
+    platforms: List[KeyCount]
 
     def platforms_string(self) -> str:
-        return ", ".join(str(platform) for platform in self.platforms)
+        return "\n".join(str(platform) for platform in self.platforms)
 
 
 def embed(
@@ -35,7 +35,7 @@ def embed(
     return discord.Embed(title=title, type="rich", description=text, color=colour)
 
 
-def build_page_message(title: str, text: str, games: List[GamePlatformCount]) -> discord.Embed:
+def build_page_message(title: str, text: str, games: List[GameKeyCount]) -> discord.Embed:
     if not games:
         return embed(text="No matching games found.", title=title)
 

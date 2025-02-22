@@ -1,5 +1,6 @@
+import collections
+import datetime
 import typing
-from collections import OrderedDict
 from typing import List
 
 from sqlalchemy import text, or_, and_, func, exists
@@ -8,8 +9,8 @@ from sqlalchemy.orm import Session, Query, aliased
 
 from discord_key_bot.common.constants import DEFAULT_PAGE_SIZE
 from discord_key_bot.common.util import (
-    GamePlatformCount,
-    PlatformCount,
+    GameKeyCount,
+    KeyCount,
     get_search_name,
 )
 from discord_key_bot.db.models import (
@@ -73,43 +74,6 @@ def get_admin_members(session: Session) -> typing.Sequence[Member]:
 
     return session.scalars(statement).all()
 
-
-def get_expiring_keys(
-    session: Session,
-        guild_id: int = 0,
-        platform: Platform = None,
-        page: int = 1,
-        per_page: int = DEFAULT_PAGE_SIZE,
-) -> typing.Tuple[List[Key], int]:
-    statement: Query[typing.Type[Key]] = (
-        session.query(Key)
-        .filter(
-            and_(
-                or_(
-                    not guild_id,
-                    Key.creator_id.in_(
-                        session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id)
-                    )
-                ),
-                or_(
-                    not platform,
-                    Key.platform == _platform_search_str(platform)
-                ),
-                Key.expiration > func.current_date()
-            )
-        )
-    )
-
-    count: int = statement.count()
-    offset: int = (page - 1) * per_page
-
-    keys: List[Key] = []
-    for key in session.scalars(statement.order_by(Key.expiration.asc()).limit(per_page).offset(offset)):
-        keys.append(key)
-
-    return keys, count
-
-
 def find_key(
     session: Session,
     key: str,
@@ -134,7 +98,8 @@ def get_paginated_games(
     page: int = 1,
     per_page: int = DEFAULT_PAGE_SIZE,
     sort: SortOrder = SortOrder.TITLE,
-) -> List[GamePlatformCount]:
+    expiring_only: bool = False,
+) -> List[GameKeyCount]:
 
     # TODO: make a less hacky query building solution
     query: str = paginated_queries[sort]
@@ -150,42 +115,38 @@ def get_paginated_games(
             "member_id": member_id,
             "platform": _platform_search_str(platform),
             "search_args": get_search_name(title),
+            "expiring_only": expiring_only
         },
     )
 
-    # group platform key counts by game while preserving sort order
-    platform_game_dict: typing.OrderedDict[str, List[PlatformCount]] = OrderedDict()
-    for game_name, platform_name, key_count in results:
-        platform_count: PlatformCount = PlatformCount(
-            get_platform(platform_name), key_count
-        )
+    # group platform key counts by game
+    game_count_dict: typing.DefaultDict[str, List[KeyCount]] = collections.defaultdict(list)
+    for game_name, platform_name, expiration, key_count in results:
+        label: str = _get_key_count_label(platform_name, expiration)
+        game_count_dict[game_name].append(KeyCount(label, key_count))
 
-        if game_name in platform_game_dict.keys():
-            platform_game_dict[game_name].append(platform_count)
-        else:
-            platform_game_dict[game_name] = [platform_count]
-
-    # turn the OrderedDict into something easier to work with
-    platform_games: List[GamePlatformCount] = [
-        GamePlatformCount(game, platforms)
-        for game, platforms in platform_game_dict.items()
+    # turn the dict into something easier to work with
+    game_counts: List[GameKeyCount] = [
+        GameKeyCount(game, platforms) for game, platforms in game_count_dict.items()
     ]
 
-    return platform_games
+    return game_counts
 
 
 def count_games(
     session: Session,
     guild_id: int = 0,
     platform: Platform = None,
-    member_id: int = 0
+    member_id: int = 0,
+    expiring_only: bool = False,
 ) -> int:
     results: Result = session.execute(
         text(queries.count_games),
         {
             "guild_id": guild_id,
             "member_id": member_id,
-            "platform": _platform_search_str(platform)
+            "platform": _platform_search_str(platform),
+            "expiring_only": expiring_only,
         },
     )
 
@@ -209,3 +170,13 @@ def delete_expired(session: Session) -> typing.Tuple[int, int]:
 
 def _platform_search_str(platform: Platform) -> str:
     return platform.search_name if platform else ''
+
+
+def _get_key_count_label(platform_name: str, expiration: str) -> str:
+    if expiration:
+        # for whatever reason SQLAlchemy doesn't preserve the Datetime type on custom queries
+        expiration_dt: datetime.datetime = datetime.datetime.strptime(expiration, "%Y-%m-%d %H:%M:%S.%f")
+        expiration_str: str = datetime.datetime.strftime(expiration_dt, "%b %d %Y")
+        return f"{get_platform(platform_name).name} ({expiration_str})"
+    else:
+        return get_platform(platform_name).name
