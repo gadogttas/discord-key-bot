@@ -213,11 +213,14 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
                 self.logger.debug(text)
                 await ctx.author.send(embed=embed(title="Renaming game", text=text))
 
-                for key in game.keys:
+                while game.keys:
+                    key = game.keys.pop()
                     key.game_id = existing_game.id
                     key.game = existing_game
+                    existing_game.keys.append(key)
 
-                session.refresh(game)
+                session.flush()
+
                 session.delete(game)
 
             session.flush()
