@@ -36,9 +36,10 @@ async def new(
 
         message: str = ""
         if isinstance(error, commands.CommandNotFound):
-            message = f"**Invalid command. Try using** `{command_prefix}help` **to figure out commands.**"
+            message = f"**Invalid command. Use** `{command_prefix}help` **for a list of valid commands.**"
         elif isinstance(error, commands.MissingRequiredArgument):
-            message = f"**Please pass in all requirements. Use** `{command_prefix}help {ctx.invoked_with}` **to see requirements.**"
+            message = (f"**Insufficient arguments. Use** `{command_prefix}help {ctx.invoked_with}` " +
+                       "**for usage information.**")
         else:
             logger.critical(f"{type(ctx.cog).__name__}.{ctx.invoked_with}: {error}")
 

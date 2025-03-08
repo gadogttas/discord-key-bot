@@ -9,38 +9,39 @@ import os
 from datetime import timedelta
 from dotenv import load_dotenv
 
-from discord_key_bot.common.constants import DEFAULT_PAGE_SIZE
+from discord_key_bot.common import defaults
 from discord_key_bot.db import connection
 
 
 async def start():
     load_dotenv()
 
-    loglevel_str: str = os.environ.get("LOGLEVEL", "INFO")
+    loglevel_str: str = os.environ.get("LOGLEVEL", defaults.LOG_LEVEL)
     log_level: int = logging.getLevelName(loglevel_str)
     logging.basicConfig(level=log_level)
 
     logger = logging.getLogger("discord-key-bot.start")
     logger.debug(f"Log level set to {loglevel_str}")
 
-    command_prefix: str = os.environ.get("BANG", "!")
+    command_prefix: str = os.environ.get("BANG", defaults.BANG)
     logger.debug(f"Command prefix: {command_prefix}")
 
-    wait_time: timedelta = timedelta(seconds=int(os.environ.get("WAIT_TIME", 86400)))
+    wait_time: timedelta = timedelta(seconds=int(os.environ.get("WAIT_TIME", defaults.CLAIM_COOLDOWN)))
     logger.debug(f"Claim cooldown: {wait_time}")
 
     bot_channel_id: int = int(os.environ.get("BOT_CHANNEL_ID"))
     logger.debug(f"Bot Channel ID: {bot_channel_id}")
 
-    sqlalchemy_uri: str = os.environ.get("SQLALCHEMY_URI", "sqlite:///:memory:")
+    sqlalchemy_uri: str = os.environ.get("SQLALCHEMY_URI", defaults.SQLALCHEMY_URI)
     logger.debug(f"Database URI: {sqlalchemy_uri}")
 
-    page_size: int = int(os.environ.get("PAGE_SIZE", str(DEFAULT_PAGE_SIZE)))
+    page_size: int = int(os.environ.get("PAGE_SIZE", str(defaults.PAGE_SIZE)))
     logger.debug(f"Page size: {page_size}")
 
     token: str = os.environ["TOKEN"]
 
-    expiration_waiver_period: timedelta = timedelta(seconds=int(os.environ.get("EXPIRATION_WAIVER_PERIOD", 604800)))
+    expiration_waiver_period: timedelta = timedelta(
+        seconds=int(os.environ.get("EXPIRATION_WAIVER_PERIOD", defaults.EXPIRATION_WAIVER_PERIOD)))
     logger.debug(f"Expiring key cooldown waiver period: {expiration_waiver_period}")
 
     db_sessionmaker: sessionmaker = connection.new(sqlalchemy_uri)

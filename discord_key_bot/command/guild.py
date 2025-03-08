@@ -245,7 +245,8 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 await send_message(
                     ctx=ctx,
                     msg=util.embed(
-                        f"Thanks {ctx.author.name}! Your keys are now available on {ctx.guild.name}. There are now {game_count} games available.",
+                        f"Thanks {ctx.author.name}! Your keys are now available on {ctx.guild.name}. " +
+                        " There are now {game_count} games available.",
                         colour=Colours.GREEN,
                     )
                 )
@@ -271,7 +272,8 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 await send_message(
                     ctx=ctx,
                     msg=util.embed(
-                        f"Thanks {ctx.author.name}! You have removed {ctx.guild.name} from sharing. There are now {game_count} games available.",
+                        f"Thanks {ctx.author.name}! You have removed {ctx.guild.name} from sharing. " +
+                        f"There are now {game_count} games available.",
                         colour=Colours.GREEN,
                     ),
                 )
@@ -354,7 +356,6 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             )
 
             claim_msg.add_field(name=game.pretty_name, value=key.key)
-            await ctx.author.send(embed=claim_msg)
 
             if is_waiver_claim:
                 channel_msg: Embed = util.embed(
@@ -365,6 +366,12 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 channel_msg: Embed = util.embed(
                     f'"{game.pretty_name}" claimed by {ctx.author.display_name}. Check your PMs for more info. Enjoy!'
                 )
+
+            try:
+                await ctx.author.send(embed=claim_msg)
+            except Exception as e:
+                session.rollback()
+                raise e
 
             await send_message(
                 ctx=ctx,

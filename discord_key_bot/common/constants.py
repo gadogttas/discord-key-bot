@@ -1,1 +1,0 @@
-DEFAULT_PAGE_SIZE: int = 20

@@ -7,7 +7,7 @@ from sqlalchemy import text, or_, and_, func, exists
 from sqlalchemy.ext.baked import Result
 from sqlalchemy.orm import Session, Query, aliased
 
-from discord_key_bot.common.constants import DEFAULT_PAGE_SIZE
+from discord_key_bot.common.defaults import PAGE_SIZE
 from discord_key_bot.common.util import (
     GameKeyCount,
     KeyCount,
@@ -55,7 +55,7 @@ def get_game(
 def get_admin_games(
     session: Session,
     game_name: str,
-    limit: int = DEFAULT_PAGE_SIZE,
+    limit: int = PAGE_SIZE,
 ) -> typing.Sequence[Game]:
     statement: Query[typing.Type[Game]] = (
         session.query(Game)
@@ -74,9 +74,10 @@ def get_admin_members(session: Session) -> typing.Sequence[Member]:
 
     return session.scalars(statement).all()
 
+
 def find_key(
-    session: Session,
-    key: str,
+        session: Session,
+        key: str,
 ) -> Key:
     key_data: typing.Optional[Key] = (
         session.query(Key)
@@ -96,11 +97,10 @@ def get_paginated_games(
     platform: Platform = None,
     title: str = "",
     page: int = 1,
-    per_page: int = DEFAULT_PAGE_SIZE,
+    per_page: int = PAGE_SIZE,
     sort: SortOrder = SortOrder.TITLE,
     expiring_only: bool = False,
 ) -> List[GameKeyCount]:
-
     # TODO: make a less hacky query building solution
     query: str = paginated_queries[sort]
 
@@ -162,8 +162,8 @@ def delete_expired(session: Session) -> typing.Tuple[int, int]:
 
     game_alias = aliased(Game)
     deleted_games: int = session.query(Game).filter(
-                    ~session.query(game_alias).join(Key).filter(Game.id == game_alias.id).exists()
-                ).delete()
+        ~session.query(game_alias).join(Key).filter(Game.id == game_alias.id).exists()
+    ).delete()
 
     return deleted_games, deleted_keys
 
