@@ -6,6 +6,7 @@ from typing import List
 from discord import Embed, Forbidden, NotFound
 from discord.ext import commands
 from discord.ext.commands import Bot
+from reactionmenu import ViewMenu
 
 from discord_key_bot.db import search
 from sqlalchemy.orm import sessionmaker
@@ -172,13 +173,6 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
     async def mykeys(
         self,
         ctx: commands.Context,
-        page: int = commands.Parameter(
-            name="page",
-            displayed_name="Page Number",
-            description=f"The page number",
-            kind=inspect.Parameter.POSITIONAL_ONLY,
-            default=1,
-        ),
     ) -> None:
         """Browse your own keys"""
         if ctx.guild:
@@ -187,12 +181,12 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
             )
             return
 
+        menu: ViewMenu = util.new_view_menu(ctx)
         with self.db_sessionmaker() as session:
             member = Member.get(session, ctx.author.id, ctx.author.name)
 
-            games: List[GameKeyCount] = search.get_paginated_games(
+            games: List[List[GameKeyCount]] = search.get_paginated_games(
                 session=session,
-                page=page,
                 per_page=self.page_size,
                 member_id=member.id,
                 sort=SortOrder.TITLE,
@@ -200,13 +194,11 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
 
             total: int = search.count_games(session=session, member_id=member.id)
 
-        msg: Embed = util.build_page_message(
-            title="Your Keys",
-            text=get_page_header_text(page, total, self.page_size),
-            games=games,
-        )
+            messages: List[Embed] = util.get_page_messages(games, "Your Keys", get_page_header_text(total))
 
-        await send_message(ctx=ctx, msg=msg)
+        menu.add_pages(messages)
+
+        await menu.start()
 
     @commands.command()
     async def expiration(

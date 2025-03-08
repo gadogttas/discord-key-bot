@@ -37,41 +37,29 @@ WITH platform_games AS (
                     members.id = guilds.member_id 
                     AND guilds.guild_id = :guild_id))
     GROUP BY 
-        games.id, keys.platform
-),
-page AS (
-    SELECT 
-        DISTINCT game_id 
-    FROM 
-        platform_games 
-    ORDER BY 
-        {}
-    LIMIT :per_page
-    OFFSET :offset
+        games.id, keys.platform, IIF(:expiring_only = 1, keys.expiration, NULL)
 )
 
 SELECT 
     game_name, platform, expiration, key_count 
 FROM 
     platform_games 
-    JOIN page
-        ON platform_games.game_id = page.game_id
-    ORDER BY 
-        {};
+ORDER BY 
+    {};
 """
 
 paginated_queries: Dict[SortOrder, str] = {
     SortOrder.TITLE: _paginated_game_template.format(
-        "LOWER(game_name) ASC", "LOWER(game_name) ASC"
+        "LOWER(game_name) ASC"
     ),
     SortOrder.LATEST: _paginated_game_template.format(
-        "game_id DESC", "platform_games.game_id DESC"
+        "game_id DESC"
     ),
     SortOrder.RANDOM: _paginated_game_template.format(
-        "RANDOM()", "LOWER(game_name) ASC"
+        "RANDOM()"
     ),
     SortOrder.EXPIRATION: _paginated_game_template.format(
-        "expiration ASC", "expiration ASC, LOWER(game_name) ASC"
+        "expiration ASC, LOWER(game_name) ASC"
     ),
 }
 

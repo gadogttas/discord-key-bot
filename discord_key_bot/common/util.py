@@ -6,6 +6,7 @@ from typing import List
 
 import discord
 from discord.ext import commands
+from reactionmenu import ViewMenu, ViewButton
 
 from discord_key_bot.common.colours import Colours
 from discord_key_bot.platform import Platform
@@ -73,10 +74,9 @@ async def send_channel_message(ctx: commands.Context, msg: typing.Union[str, dis
         await ctx.send(embed=msg)
 
 
-def get_page_header_text(page: int, total: int, per_page: int, unit: str = "games") -> str:
-    pages: int = ceil(total / per_page)
+def get_page_header_text(total: int, unit: str = "games") -> str:
 
-    return f"Showing page {page} of {pages} ({total} {unit})"
+    return f"Showing {total} {unit}"
 
 
 def is_direct_message(ctx: commands.Context) -> bool:
@@ -102,3 +102,29 @@ def pretty_timedelta(delta: datetime.timedelta) -> str:
         return f'{minutes} minutes and {seconds} seconds'
     else:
         return f'{seconds} seconds'
+
+
+def get_page_messages(pages: List[List[GameKeyCount]], title: str, page_header_text: str) -> List[discord.Embed]:
+    messages: List[discord.Embed] = []
+    for page in pages:
+        msg: discord.Embed = build_page_message(
+            title=title,
+            text=page_header_text,
+            games=page,
+        )
+
+        messages.append(msg)
+
+    return messages
+
+
+def new_view_menu(ctx: commands.Context) -> ViewMenu:
+    # TODO: make timeout configurable
+    menu: ViewMenu = ViewMenu(ctx, menu_type=ViewMenu.TypeEmbed, all_can_click=False, timeout=1200)
+    menu.add_button(ViewButton.go_to_first_page())
+    menu.add_button(ViewButton.back())
+    menu.add_button(ViewButton.next())
+    menu.add_button(ViewButton.go_to_last_page())
+
+    return menu
+

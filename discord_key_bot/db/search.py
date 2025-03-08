@@ -96,22 +96,17 @@ def get_paginated_games(
     member_id: int = 0,
     platform: Platform = None,
     title: str = "",
-    page: int = 1,
     per_page: int = PAGE_SIZE,
     sort: SortOrder = SortOrder.TITLE,
     expiring_only: bool = False,
-) -> List[GameKeyCount]:
+) -> List[List[GameKeyCount]]:
     # TODO: make a less hacky query building solution
     query: str = paginated_queries[sort]
-
-    offset: int = (page - 1) * per_page
 
     results: Result = session.execute(
         text(query),
         {
             "guild_id": guild_id,
-            "offset": offset,
-            "per_page": per_page,
             "member_id": member_id,
             "platform": _platform_search_str(platform),
             "search_args": get_search_name(title),
@@ -130,7 +125,7 @@ def get_paginated_games(
         GameKeyCount(game, platforms) for game, platforms in game_count_dict.items()
     ]
 
-    return game_counts
+    return _get_pages(game_counts, sort, per_page)
 
 
 def count_games(
@@ -180,3 +175,16 @@ def _get_key_count_label(platform_name: str, expiration: str) -> str:
         return f"{get_platform(platform_name).name} ({expiration_str})"
     else:
         return get_platform(platform_name).name
+
+
+def _get_pages(games: List[GameKeyCount], sort: SortOrder, page_size: int) -> List[List[GameKeyCount]]:
+    pages: List[List[GameKeyCount]] = []
+    for i in range(0, len(games), page_size):
+        page: List[GameKeyCount] = games[i:i + page_size]
+
+        if sort == SortOrder.RANDOM:
+            list.sort(page, key=lambda game: game.name)
+
+        pages.append(page)
+
+    return pages

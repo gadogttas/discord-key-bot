@@ -15,6 +15,8 @@ from discord_key_bot.platform import all_platforms, get_platform, Platform
 from discord_key_bot.common.util import GameKeyCount, send_message, get_page_header_text
 from discord_key_bot.common.colours import Colours
 
+from reactionmenu import ViewMenu
+
 
 class GuildCommands(commands.Cog, name='Channel Commands'):
     def __init__(
@@ -45,8 +47,9 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     ) -> None:
         """Search available games"""
 
+        menu: ViewMenu = util.new_view_menu(ctx)
         with self.db_sessionmaker() as session:
-            games: List[GameKeyCount] = search.get_paginated_games(
+            games: List[List[GameKeyCount]] = search.get_paginated_games(
                 session=session,
                 title=game_name,
                 guild_id=ctx.guild.id,
@@ -54,13 +57,12 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 sort=SortOrder.TITLE,
             )
 
-        msg = util.build_page_message(
-            title="Search Results",
-            text=f"Top {self.page_size} search results...",
-            games=games
-        )
+            total: int = search.count_games(session=session, guild_id=ctx.guild.id)
+            messages: List[Embed] = util.get_page_messages(games, "Search Results", get_page_header_text(total))
 
-        await send_message(ctx=ctx, msg=msg)
+        menu.add_pages(messages)
+
+        await menu.start()
 
     @commands.command()
     async def platforms(self, ctx: commands.Context) -> None:
@@ -87,13 +89,6 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             description="The platform you wish to see games for (e.g. Steam)",
             kind=inspect.Parameter.POSITIONAL_ONLY,
         ),
-        page: int = commands.Parameter(
-            name="page",
-            displayed_name="Page Number",
-            description=f"The page number to display",
-            kind=inspect.Parameter.POSITIONAL_ONLY,
-            default=1,
-        ),
     ) -> None:
         """Lists available games for the specified platform"""
 
@@ -110,13 +105,13 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             )
             return
 
+        menu: ViewMenu = util.new_view_menu(ctx)
         with self.db_sessionmaker() as session:
-            games: List[GameKeyCount] = search.get_paginated_games(
+            games: List[List[GameKeyCount]] = search.get_paginated_games(
                 session=session,
                 platform=platform,
                 guild_id=ctx.guild.id,
                 per_page=self.page_size,
-                page=page,
                 sort=SortOrder.TITLE,
             )
 
@@ -124,89 +119,66 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 session=session, guild_id=ctx.guild.id, platform=platform
             )
 
-        msg = util.embed(
-            get_page_header_text(page, total, self.page_size),
-            title=f"Browse Games available for {platform.name}",
-        )
+            messages: List[Embed] = util.get_page_messages(games, "Search Results", get_page_header_text(total))
 
-        for game in games:
-            value = f"Keys available: {game.platforms[0].count}"
-            msg.add_field(name=game.name, value=value, inline=True)
+        menu.add_pages(messages)
 
-        await send_message(ctx=ctx, msg=msg)
+        await menu.start()
 
     @commands.command()
     async def browse(
         self,
         ctx: commands.Context,
-        page: int = commands.Parameter(
-            name="page",
-            displayed_name="Page Number",
-            description="The page number",
-            kind=inspect.Parameter.POSITIONAL_ONLY,
-            default=1,
-        ),
     ) -> None:
         """Browse through available games"""
 
+        menu: ViewMenu = util.new_view_menu(ctx)
         with self.db_sessionmaker() as session:
-            games: List[GameKeyCount] = search.get_paginated_games(
+            games: List[List[GameKeyCount]] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,
-                page=page,
                 per_page=self.page_size,
                 sort=SortOrder.TITLE,
             )
 
             total: int = search.count_games(session=session, guild_id=ctx.guild.id)
+            messages: List[Embed] = util.get_page_messages(games, "Browse", get_page_header_text(total))
 
-        msg: Embed = util.build_page_message(
-            title="Browse Games",
-            text=get_page_header_text(page, total, self.page_size),
-            games=games,
-        )
+        menu.add_pages(messages)
 
-        await send_message(ctx=ctx, msg=msg)
+        await menu.start()
 
     @commands.command()
     async def latest(
         self,
         ctx: commands.Context,
-        page: int = commands.Parameter(
-            name="page",
-            displayed_name="Page Number",
-            description=f"The page number",
-            kind=inspect.Parameter.POSITIONAL_ONLY,
-            default=1,
-        ),
     ) -> None:
         """Browse through available games by date added in descending order"""
 
+        menu: ViewMenu = util.new_view_menu(ctx)
         with self.db_sessionmaker() as session:
-            games: List[GameKeyCount] = search.get_paginated_games(
+            games: List[List[GameKeyCount]] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,
-                page=page,
                 per_page=self.page_size,
                 sort=SortOrder.LATEST,
             )
 
             total: int = search.count_games(session=session, guild_id=ctx.guild.id)
 
-        msg: Embed = util.build_page_message(
-            title="Latest Games",
-            text=get_page_header_text(page, total, self.page_size),
-            games=games,
-        )
+            messages: List[Embed] = util.get_page_messages(games, "Latest Games", get_page_header_text(total))
 
-        await send_message(ctx=ctx, msg=msg)
+        menu.add_pages(messages)
+
+        await menu.start()
 
     @commands.command()
     async def random(self, ctx: commands.Context) -> None:
         """Display random available games"""
 
+        menu: ViewMenu = util.new_view_menu(ctx)
         with self.db_sessionmaker() as session:
-            games: List[GameKeyCount] = search.get_paginated_games(
+            games: List[List[GameKeyCount]] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,
                 per_page=self.page_size,
@@ -214,16 +186,11 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             )
 
             total: int = search.count_games(session=session, guild_id=ctx.guild.id)
+            messages: List[Embed] = util.get_page_messages(games, "Random Games", get_page_header_text(total))
 
-        msg = util.embed(
-            f"Showing {min(self.page_size, total)} random games of {total} total",
-            title="Random Games",
-        )
+        menu.add_pages(messages)
 
-        for game in games:
-            msg.add_field(name=game.name, value=game.platforms_string())
-
-        await send_message(ctx=ctx, msg=msg)
+        await menu.start()
 
     @commands.command()
     async def share(self, ctx: commands.Context) -> None:
@@ -246,7 +213,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                     ctx=ctx,
                     msg=util.embed(
                         f"Thanks {ctx.author.name}! Your keys are now available on {ctx.guild.name}. " +
-                        " There are now {game_count} games available.",
+                        f" There are now {game_count} games available.",
                         colour=Colours.GREEN,
                     )
                 )
@@ -405,7 +372,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             return
 
         with self.db_sessionmaker() as session:
-            games: List[GameKeyCount] = search.get_paginated_games(
+            games: List[List[GameKeyCount]] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,
                 platform=platform,
@@ -424,7 +391,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             await send_message(ctx=ctx, msg=util.embed("No games found"))
             return
 
-        msg.add_field(name=games[0].name, value=games[0].platforms_string())
+        msg.add_field(name=games[0][0].name, value=games[0][0].platforms_string())
 
         await send_message(ctx=ctx, msg=msg)
 
@@ -444,12 +411,12 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
 
         count: int
 
+        menu: ViewMenu = util.new_view_menu(ctx)
         with self.db_sessionmaker() as session:
-            games: List[GameKeyCount] = search.get_paginated_games(
+            games: List[List[GameKeyCount]] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,
                 per_page=self.page_size,
-                page=page,
                 sort=SortOrder.EXPIRATION,
                 expiring_only=True,
             )
@@ -462,13 +429,12 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 await send_message(ctx=ctx, msg=util.embed("No keys found"))
                 return
 
-            msg: Embed = util.embed(title="Expiring Keys",
-                                    text=get_page_header_text(page, total, self.page_size, "keys"))
+            total: int = search.count_games(session=session, guild_id=ctx.guild.id)
+            messages: List[Embed] = util.get_page_messages(games, "Expiring", get_page_header_text(total))
 
-            for game in games:
-                msg.add_field(name=game.name, value=game.platforms_string())
+        menu.add_pages(messages)
 
-        await send_message(ctx=ctx, msg=msg)
+        await menu.start()
 
     def _get_cooldown(self, member: Member) -> datetime.timedelta:
         if member.last_claim:
