@@ -100,11 +100,17 @@ def get_paginated_games(
     per_page: int = PAGE_SIZE,
     sort: SortOrder = SortOrder.TITLE,
     expiring_only: bool = False,
+    inserts: int = 0,
 ) -> List[GameKeyCount]:
     # TODO: make a less hacky query building solution
     query: str = paginated_queries[sort]
 
-    offset: int = (page - 1) * per_page
+    if sort == SortOrder.LATEST:
+        if page == 1:
+            per_page -= inserts
+        offset: int = max((page - 1) * per_page - inserts, 0)
+    else:
+        offset: int = (page - 1) * per_page
 
     results: Result = session.execute(
         text(query),

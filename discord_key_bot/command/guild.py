@@ -7,7 +7,7 @@ from discord.ext.commands import Bot
 from sqlalchemy.orm import sessionmaker
 from typing import List, Optional
 
-from discord_key_bot.common import util
+from discord_key_bot.common import util, defaults
 from discord_key_bot.db import search
 from discord_key_bot.db.models import Member, Key, Game
 from discord_key_bot.db.queries import SortOrder
@@ -189,9 +189,14 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 page=page,
                 per_page=self.page_size,
                 sort=SortOrder.LATEST,
+                inserts=len(defaults.indexes)
             )
 
-            total: int = search.count_games(session=session, guild_id=ctx.guild.id)
+            if page == 1:
+                for i in range(len(defaults.indexes)):
+                    games.insert(defaults.indexes[i], defaults.inserts[i])
+
+            total: int = search.count_games(session=session, guild_id=ctx.guild.id) + len(defaults.indexes)
 
         msg: Embed = util.build_page_message(
             title="Latest Games",
