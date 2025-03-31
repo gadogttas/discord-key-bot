@@ -246,7 +246,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                     ctx=ctx,
                     msg=util.embed(
                         f"Thanks {ctx.author.name}! Your keys are now available on {ctx.guild.name}. " +
-                        " There are now {game_count} games available.",
+                        f" There are now {game_count} games available.",
                         colour=Colours.GREEN,
                     )
                 )
