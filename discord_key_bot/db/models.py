@@ -30,12 +30,13 @@ class Game(Base):
 
         return game
 
-    def find_key_by_platform(self, platform: Platform) -> "Key":
+    def find_key(self, platform: Platform, member_id: int = 0) -> "Key":
         # claim the latest expiring keys first
         sorted_keys: List[Optional["Key"]] = sorted(
             self.keys, key=lambda k: datetime.datetime.max if not k.expiration else k.expiration)
         try:
-            return next(key for key in sorted_keys if key.platform == platform.search_name)
+            return next(key for key in sorted_keys if key.platform == platform.search_name
+                        and (member_id == 0 or key.creator_id == member_id))
         except StopIteration:
             raise ValueError
 
