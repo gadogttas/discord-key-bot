@@ -322,7 +322,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 return
 
             try:
-                key: Key = game.find_key_by_platform(platform)
+                key: Key = game.find_key(platform)
             except ValueError:
                 await send_message(ctx=ctx, msg=util.embed("No keys found for the specified platform"))
                 return

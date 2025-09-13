@@ -28,20 +28,14 @@ def get_game(
     session: Session,
     game_name: str,
     guild_id: int = 0,
-    member_id: int = 0,
 ) -> typing.Optional[Game]:
     game: typing.Optional[Game] = (
         session.query(Game)
-        .join(Key)
         .filter(
             and_(
                 or_(
                     guild_id == 0,
                     Key.creator_id.in_(session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id))
-                ),
-                or_(
-                    member_id == 0,
-                    Key.creator_id == member_id
                 ),
                 Game.name == get_search_name(game_name)
             )

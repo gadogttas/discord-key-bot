@@ -141,13 +141,14 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
         with self.db_sessionmaker() as session:
             member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
-            game: Game = search.get_game(session=session, game_name=game_name, member_id=member.id)
+            game: Game = search.get_game(session=session, game_name=game_name)
             if not game:
                 await send_message(ctx=ctx, msg=util.embed("Game not found"))
                 return
 
-            key: Key = game.find_key_by_platform(platform)
-            if not key:
+            try:
+                key: Key = game.find_key(platform, member.id)
+            except ValueError:
                 await send_message(ctx=ctx, msg=util.embed("No keys found for this platform"))
                 return
 
