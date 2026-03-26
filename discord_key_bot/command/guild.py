@@ -1,7 +1,9 @@
+import csv
 import inspect
 import datetime
+import io
 
-from discord import Embed
+from discord import Embed, File
 from discord.ext import commands
 from discord.ext.commands import Bot
 from sqlalchemy.orm import sessionmaker
@@ -469,6 +471,41 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 msg.add_field(name=game.name, value=game.platforms_string())
 
         await send_message(ctx=ctx, msg=msg)
+
+    @commands.command()
+    async def export(
+        self,
+        ctx: commands.Context,
+    ) -> None:
+        """Export key counts"""
+
+        with self.db_sessionmaker() as session:
+            games: List[GameKeyCount] = search.get_paginated_games(
+                session=session,
+                guild_id=ctx.guild.id,
+                per_page=-1,
+                sort=SortOrder.TITLE,
+            )
+
+            total: int = search.count_games(
+                session=session, guild_id=ctx.guild.id, expiring_only=False
+            )
+
+        f: io.StringIO = io.StringIO()
+        writer: csv.writer = csv.writer(f, dialect="excel")
+
+        writer.writerow(["Title", "Platform", "Count"])
+        for game in games:
+            for key_count in game.platforms:
+                writer.writerow([game.name, key_count.label, key_count.count])
+
+        b: io.BytesIO = io.BytesIO(f.getvalue().encode('utf8'))
+        f.close()
+
+        csvfile: File = File(b, filename="key_count_export.csv")
+
+        await ctx.send(f"Exported key counts for {total} games", file=csvfile)
+        b.close()
 
     def _get_cooldown(self, member: Member) -> datetime.timedelta:
         if member.last_claim:
