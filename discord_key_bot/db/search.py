@@ -35,10 +35,18 @@ def get_game(
             and_(
                 or_(
                     guild_id == 0,
-                    Key.creator_id.in_(session.query(Member.id).join(Guild).filter(Guild.guild_id == guild_id))
+                    Key.creator_id.in_(session.query(Member.id).join(Guild).filter(
+                        Guild.guild_id == guild_id,
+                        and_(
+                            or_(
+                                Key.expiration.is_(None),
+                                Key.expiration > func.current_date()
+                            ),
+                        )
+                    ))
                 ),
-                Game.name == get_search_name(game_name)
-            )
+                Game.name == get_search_name(game_name),
+            ),
         )
         .first()
     )

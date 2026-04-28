@@ -36,7 +36,7 @@ class Game(Base):
             self.keys, key=lambda k: datetime.datetime.max if not k.expiration else k.expiration)
         try:
             return next(key for key in sorted_keys if key.platform == platform.search_name
-                        and (member_id == 0 or key.creator_id == member_id))
+                        and (member_id == 0 or key.creator_id == member_id) and not key.is_expired())
         except StopIteration:
             raise ValueError
 
@@ -54,6 +54,12 @@ class Key(Base):
     creator_id = Column(Integer, ForeignKey("members.id"))
     creator = relationship("Member", backref="keys")
     expiration = Column(DateTime)
+
+    def is_expired(self) -> bool:
+        if not self.expiration:
+            return False
+
+        return self.expiration <= datetime.datetime.now()
 
 
 def _upgrade_keys(session: Session) -> None:
