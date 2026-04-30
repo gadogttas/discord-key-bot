@@ -88,6 +88,7 @@ class Member(Base):
     name = Column(String)
     last_claim = Column(DateTime)
     is_admin = Column(Boolean, default=False, nullable=False)
+    is_owner = Column(Boolean, default=False, nullable=False)
 
     _guilds: Mapped[List[Guild]] = relationship("Guild", cascade="all, delete-orphan")
     guilds: AssociationProxy[Guild] = association_proxy(
@@ -113,6 +114,9 @@ def _upgrade_member(session: Session) -> None:
         if ver < 1:
             sqlalchemy_helpers.table_add_column("members", "is_admin", Boolean, session, default=False)
             ver = 1
+        if ver < 2:
+            sqlalchemy_helpers.table_add_column("members", "is_owner", Boolean, session, default=False)
+            ver = 2
 
         return ver
 

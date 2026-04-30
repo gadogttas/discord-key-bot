@@ -10,7 +10,7 @@ from discord.ext import commands
 from discord.ext.commands import Bot
 from sqlalchemy.orm import sessionmaker
 
-from discord_key_bot.command.util import is_admin
+from discord_key_bot.command.util import is_admin, is_owner
 from discord_key_bot.common.colours import Colours
 from discord_key_bot.common.util import get_search_name, embed, send_message
 from discord_key_bot.db import search
@@ -27,7 +27,6 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
         self._member_patt = re.compile(r"<@(\d+)>")
 
-    @commands.is_owner()
     @commands.command()
     async def addadmin(
         self,
@@ -50,6 +49,10 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
         with self.db_sessionmaker() as session:
 
+            if not is_owner(session, ctx):
+                self.logger.info(f"{ctx.author.display_name} is not an authorized owner")
+                return
+
             member = Member.get(session, user.id, user.name)
             member.is_admin = True
 
@@ -58,7 +61,36 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
         await ctx.author.send(embed=embed(f"Successfully added {user.name} as admin", colour=Colours.GREEN))
 
+    @commands.command()
     @commands.is_owner()
+    async def addowner(
+        self,
+        ctx: commands.Context,
+        *,
+        member: str = commands.Parameter(
+            name="member",
+            displayed_name="Member",
+            description="Member to add as owner",
+            kind=inspect.Parameter.POSITIONAL_ONLY
+        ),
+    ):
+        """Add a member as an owner"""
+
+        self.logger.info(f"received addowner request from user {ctx.author.display_name}")
+
+        user: User = await self._get_user(ctx, member)
+        if not user:
+            return
+
+        with self.db_sessionmaker() as session:
+            member = Member.get(session, user.id, user.name)
+            member.is_owner = True
+
+            session.flush()
+            session.commit()
+
+        await ctx.author.send(embed=embed(f"Successfully added {user.name} as owner", colour=Colours.GREEN))
+
     @commands.command()
     async def rmadmin(
         self,
@@ -80,6 +112,10 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
             return
 
         with self.db_sessionmaker() as session:
+            if not is_owner(session, ctx):
+                self.logger.info(f"{ctx.author.display_name} is not an authorized owner")
+                return
+
             member = Member.get(session, user.id, user.name)
             member.is_admin = False
 
@@ -90,12 +126,46 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
     @commands.command()
     @commands.is_owner()
+    async def rmowner(
+            self,
+            ctx: commands.Context,
+            *,
+            member: str = commands.Parameter(
+                name="member",
+                displayed_name="Member",
+                description="Member to remove as owner",
+                kind=inspect.Parameter.POSITIONAL_ONLY
+            ),
+    ):
+        """Remove a member as an owner"""
+
+        self.logger.info(f"received rmowner request from user {ctx.author.display_name}")
+
+        user: User = await self._get_user(ctx, member)
+        if not user:
+            return
+
+        with self.db_sessionmaker() as session:
+
+            member = Member.get(session, user.id, user.name)
+            member.is_owner = False
+
+            session.flush()
+            session.commit()
+
+        await ctx.author.send(embed=embed(f"Successfully removed {user.name} as admin", colour=Colours.GREEN))
+
+    @commands.command()
     async def lsadmin(self, ctx: commands.Context):
         """List admin users"""
 
         self.logger.info(f"received lsadmin request from user {ctx.author.display_name}")
 
         with self.db_sessionmaker() as session:
+            if not is_owner(session, ctx):
+                self.logger.info(f"{ctx.author.display_name} is not an authorized owner")
+                return
+
             admin_users: Sequence[Member] = search.get_admin_members(session)
 
         if not admin_users:
@@ -111,6 +181,32 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         for admin in admin_users:
             msg.add_field(name=admin.name,
                           value=f"**id:** {admin.id}")
+
+        await ctx.author.send(embed=msg)
+
+    @commands.command()
+    @commands.is_owner()
+    async def lsowner(self, ctx: commands.Context):
+        """List owners"""
+
+        self.logger.info(f"received lsowner request from user {ctx.author.display_name}")
+
+        with self.db_sessionmaker() as session:
+            owners: Sequence[Member] = search.get_owner_members(session)
+
+        if not owners:
+            await ctx.author.send(embed=embed("No owners found", colour=Colours.RED))
+            return
+
+        msg = embed(
+            title="Owner Users",
+            text="",
+            colour=Colours.GREEN
+        )
+
+        for owner in owners:
+            msg.add_field(name=owner.name,
+                          value=f"**id:** {owner.id}")
 
         await ctx.author.send(embed=msg)
 
@@ -302,7 +398,6 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
             )
 
     @commands.command()
-    @commands.is_owner()
     async def purge(self, ctx: commands.Context):
         """Purge expired keys and orphaned games"""
 
@@ -312,6 +407,10 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         key_count: int
 
         with self.db_sessionmaker() as session:
+            if not is_owner(session, ctx):
+                self.logger.info(f"{ctx.author.display_name} is not an authorized owner")
+                return
+
             game_count, key_count = search.delete_expired(session)
             session.flush()
             session.commit()
@@ -323,7 +422,6 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
             )
 
     @commands.command()
-    @commands.is_owner()
     async def delete(
         self,
         ctx: commands.Context,
@@ -339,6 +437,10 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         self.logger.info(f"delete request from user {ctx.author.display_name} for game_id {game_id}")
 
         with self.db_sessionmaker() as session:
+            if not is_owner(session, ctx):
+                self.logger.info(f"{ctx.author.display_name} is not an authorized owner")
+                return
+
             game = session.get(Game, game_id)
             if not game:
                 await ctx.author.send(embed=embed("Game not found", colour=Colours.RED))
