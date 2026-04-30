@@ -77,6 +77,14 @@ def get_admin_members(session: Session) -> typing.Sequence[Member]:
     return session.scalars(statement).all()
 
 
+def get_owner_members(session: Session) -> typing.Sequence[Member]:
+    statement: Query[typing.Type[Member]] = (
+        session.query(Member).filter(Member.is_owner)
+    )
+
+    return session.scalars(statement).all()
+
+
 def find_key(
         session: Session,
         key: str,
