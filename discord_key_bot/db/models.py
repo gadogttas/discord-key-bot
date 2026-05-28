@@ -85,7 +85,8 @@ def _upgrade_keys(session: Session) -> None:
         )
         keys: typing.Sequence[Key] = session.scalars(statement).all()
         for k in keys:
-            k.expiration = k.expiration.replace(tzinfo=plat.expiration_tz).astimezone(datetime.UTC)
+            k.expiration = k.expiration.replace(
+                hour=23, minute=59, second=59, tzinfo=plat.expiration_tz).astimezone(datetime.UTC)
 
         session.flush()
         session.commit()

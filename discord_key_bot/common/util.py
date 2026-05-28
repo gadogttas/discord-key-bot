@@ -3,6 +3,7 @@ import re
 import typing
 from math import ceil
 from typing import List
+from zoneinfo import ZoneInfo
 
 import discord
 from discord.ext import commands
@@ -102,3 +103,8 @@ def pretty_timedelta(delta: datetime.timedelta) -> str:
         return f'{minutes} minutes and {seconds} seconds'
     else:
         return f'{seconds} seconds'
+
+
+def parse_expiration(expiration: str, time_zone: ZoneInfo) -> datetime.datetime:
+    return datetime.datetime.strptime(expiration, "%b %d %Y").replace(
+        hour=23, minute=59, second=59, microsecond=999999, tzinfo=time_zone).astimezone(datetime.UTC)
