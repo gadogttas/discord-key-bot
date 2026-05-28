@@ -369,8 +369,11 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
                 await ctx.author.send(embed=embed("Game not found", colour=Colours.RED))
                 return
 
+            plat: platform = get_platform(platform_name)
+
             try:
-                expiration_date = datetime.datetime.strptime(expiration, "%b %d %Y")
+                expiration_date = datetime.datetime.strptime(expiration, "%b %d %Y").replace(
+                    tzinfo=plat.expiration_tz).astimezone(datetime.UTC)
             except ValueError:
                 await send_message(
                     ctx=ctx,
@@ -378,7 +381,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
                 )
                 return
 
-            if expiration_date.date() <= datetime.datetime.now(datetime.UTC).date():
+            if expiration_date <= datetime.datetime.now(datetime.UTC):
                 await send_message(
                     ctx=ctx,
                     msg=embed(f"Expiration date is in the past.", Colours.RED),

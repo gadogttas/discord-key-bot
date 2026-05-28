@@ -1,17 +1,19 @@
 import re
-from typing import List, Dict, Iterable
+from typing import List, Dict, Iterable, Optional
+from zoneinfo import ZoneInfo
 
 
 class Platform(object):
     """Class representing a platform"""
 
     def __init__(
-        self, name: str, key_regexes: List[str], example_keys: List[str]
+        self, name: str, key_regexes: List[str], example_keys: List[str], expiration_tz: Optional[ZoneInfo] = None
     ) -> None:
         self.name: str = name
         self.search_name: str = name.lower()
         self._patterns: List[re.Pattern] = self._compile_patterns(key_regexes)
-        self.example_keys = example_keys
+        self.example_keys: List[str] = example_keys
+        self.expiration_tz: ZoneInfo = expiration_tz or ZoneInfo("Etc/UTC")
 
     def __str__(self) -> str:
         return self.name
@@ -31,6 +33,7 @@ gog: Platform = Platform(
         r"^[a-zA-Z0-9]{18}$",
     ],
     example_keys=["AAAAA-BBBBB-CCCCC-DDDDD", "ABCDEABCDEABCDEABC (18 chars)"],
+    expiration_tz=ZoneInfo("Europe/Sofia"),  # random zone that's UTC +3 to +2
 )
 
 steam: Platform = Platform(

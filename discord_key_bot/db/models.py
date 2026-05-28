@@ -1,13 +1,15 @@
 import datetime
+import typing
 from typing import List, Optional
 
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
-from sqlalchemy.orm import relationship, mapped_column, Mapped, Session, sessionmaker
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, and_
+from sqlalchemy.orm import relationship, mapped_column, Mapped, Session, sessionmaker, Query
 from sqlalchemy.ext.associationproxy import association_proxy, AssociationProxy
 
 from discord_key_bot.common.util import get_search_name
 from discord_key_bot.db import sqlalchemy_helpers, db_schema
 from .db_schema import Base
+from .. import platform
 from ..platform import Platform
 
 
@@ -67,8 +69,26 @@ def _upgrade_keys(session: Session) -> None:
         if ver < 1:
             sqlalchemy_helpers.table_add_column("keys", "expiration", DateTime, session)
             ver = 1
+        elif ver < 2:
+            add_expiration_tz(platform.gog)
+
+            ver = 2
 
         return ver
+
+    def add_expiration_tz(plat: platform.Platform):
+        statement: Query[typing.Type[Key]] = session.query(Key).join(Game).filter(
+            and_(
+                Key.platform.is_(plat.search_name),
+                Key.expiration.isnot(None)
+            )
+        )
+        keys: typing.Sequence[Key] = session.scalars(statement).all()
+        for k in keys:
+            k.expiration = k.expiration.replace(tzinfo=plat.expiration_tz).astimezone(datetime.UTC)
+
+        session.flush()
+        session.commit()
 
     db_schema.upgrade(entity='keys', upgrade_func=upgrade_func, session=session)
 

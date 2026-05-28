@@ -242,7 +242,8 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
             )
 
         with self.db_sessionmaker() as session:
-            key = search.find_key(session=session, key=key)
+            key: Key = search.find_key(session=session, key=key)
+            plat: Platform = get_platform(key.platform)
 
             if not key:
                 await send_message(
@@ -259,7 +260,8 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
                 return
 
             try:
-                expiration_date = datetime.datetime.strptime(expiration, "%b %d %Y")
+                expiration_date = datetime.datetime.strptime(expiration, "%b %d %Y").replace(
+                    tzinfo=plat.expiration_tz).astimezone(datetime.UTC)
             except ValueError:
                 await send_message(
                     ctx=ctx,
@@ -267,7 +269,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
                 )
                 return
 
-            if expiration_date.date() <= datetime.datetime.now(datetime.UTC).date():
+            if expiration_date <= datetime.datetime.now(datetime.UTC):
                 await send_message(
                     ctx=ctx,
                     msg=util.embed(f"Expiration date is in the past.", Colours.RED),
