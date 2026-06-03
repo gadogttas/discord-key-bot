@@ -49,7 +49,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
         with self.db_sessionmaker() as session:
 
-            if not is_owner(session, ctx):
+            if not await is_owner(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized owner")
                 return
 
@@ -112,7 +112,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
             return
 
         with self.db_sessionmaker() as session:
-            if not is_owner(session, ctx):
+            if not await is_owner(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized owner")
                 return
 
@@ -162,7 +162,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         self.logger.info(f"received lsadmin request from user {ctx.author.display_name}")
 
         with self.db_sessionmaker() as session:
-            if not is_owner(session, ctx):
+            if not await is_owner(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized owner")
                 return
 
@@ -227,7 +227,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         self.logger.info(f"received gameinfo request from user {ctx.author.display_name}")
 
         with self.db_sessionmaker() as session:
-            if not is_admin(session, ctx):
+            if not await is_admin(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
                 return
 
@@ -276,7 +276,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
         with self.db_sessionmaker() as session:
 
-            if not is_admin(session, ctx):
+            if not await is_admin(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
                 return
 
@@ -351,7 +351,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         self.logger.info(f"bulk_expire request from user {ctx.author.display_name}: {game_id} - {expiration}")      
 
         with self.db_sessionmaker() as session:
-            if not is_admin(session, ctx):
+            if not await is_admin(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
                 return
 
@@ -409,7 +409,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         key_count: int
 
         with self.db_sessionmaker() as session:
-            if not is_owner(session, ctx):
+            if not await is_owner(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized owner")
                 return
 
@@ -439,7 +439,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         self.logger.info(f"delete request from user {ctx.author.display_name} for game_id {game_id}")
 
         with self.db_sessionmaker() as session:
-            if not is_owner(session, ctx):
+            if not await is_owner(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized owner")
                 return
 
@@ -457,6 +457,43 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
                     title="Deleting Expired Keys",
                     text=f"game_id {game_id} deleted", colour=Colours.GREEN)
                 )
+
+    @commands.command()
+    async def reset_cooldown(
+            self,
+            ctx: commands.Context,
+            *,
+            member: str = commands.Parameter(
+                name="member",
+                displayed_name="Member",
+                description="Member to reset cooldown for",
+                kind=inspect.Parameter.POSITIONAL_ONLY
+            ),
+    ):
+        """Reset the claim cooldown for a user"""
+
+        self.logger.info(f"cooldown reset request for {member} received from user {ctx.author.display_name}")
+
+        user: User = await self._get_user(ctx, member)
+        if not user:
+            return
+
+        with self.db_sessionmaker(expire_on_commit=False) as session:
+            if not await is_admin(session, ctx):
+                self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
+                return
+
+            member: Member = Member.get(session, user.id, user.name)
+            member.last_claim = None
+
+            session.flush()
+            session.commit()
+
+        await ctx.author.send(
+            embed=embed(
+                title="Claim cooldown reset",
+                text=f"Claim cooldown reset for {member.name} ", colour=Colours.GREEN)
+            )
 
     async def _get_user(self, ctx: commands.Context, user_str: str) -> Optional[discord.User]:
         match: re.Match = self._member_patt.match(user_str)
