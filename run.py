@@ -38,13 +38,16 @@ async def start():
     page_size: int = int(os.environ.get("PAGE_SIZE", str(defaults.PAGE_SIZE)))
     logger.debug(f"Page size: {page_size}")
 
+    echo_sql_statements: bool = bool(os.environ.get("ECHO_SQL_STATEMENTS", False))
+    logger.debug(f"Echo SQL statements: {echo_sql_statements}")
+
     token: str = os.environ["TOKEN"]
 
     expiration_waiver_period: timedelta = timedelta(
         seconds=int(os.environ.get("EXPIRATION_WAIVER_PERIOD", defaults.EXPIRATION_WAIVER_PERIOD)))
     logger.debug(f"Expiring key cooldown waiver period: {expiration_waiver_period}")
 
-    db_sessionmaker: sessionmaker = connection.new(sqlalchemy_uri)
+    db_sessionmaker: sessionmaker = connection.new(sqlalchemy_uri, echo=echo_sql_statements)
     logger.info("Successfully initialized database connection")
 
     bot = await discord_key_bot.bot.new(
