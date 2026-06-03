@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 from discord_key_bot.command.util import is_admin, is_owner
 from discord_key_bot.common.colours import Colours
-from discord_key_bot.common.util import get_search_name, embed, send_message, parse_expiration
+from discord_key_bot.common.util import get_search_name, embed, send_message, get_expiration_eod
 from discord_key_bot.db import search
 from discord_key_bot.db.models import Game, Member
 from discord_key_bot.platform import Platform, get_platform
@@ -372,7 +372,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
             plat: platform = get_platform(platform_name)
 
             try:
-                expiration_date = parse_expiration(expiration, plat.expiration_tz)
+                expiration_date = get_expiration_eod(expiration, plat.expiration_tz)
             except ValueError:
                 await send_message(
                     ctx=ctx,

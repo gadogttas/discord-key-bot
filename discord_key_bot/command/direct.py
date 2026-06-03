@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 from discord_key_bot.common import util
 from discord_key_bot.db.models import Game, Key, Member
-from discord_key_bot.common.util import GameKeyCount, send_message, get_page_header_text, parse_expiration
+from discord_key_bot.common.util import GameKeyCount, send_message, get_page_header_text, get_expiration_eod
 from discord_key_bot.db.queries import SortOrder
 from discord_key_bot.platform import Platform, get_platform
 from discord_key_bot.common.colours import Colours
@@ -260,7 +260,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
                 return
 
             try:
-                expiration_date = parse_expiration(expiration, plat.expiration_tz)
+                expiration_date = get_expiration_eod(expiration, plat.expiration_tz)
             except ValueError:
                 await send_message(
                     ctx=ctx,

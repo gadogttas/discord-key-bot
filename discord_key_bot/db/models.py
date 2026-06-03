@@ -6,7 +6,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, a
 from sqlalchemy.orm import relationship, mapped_column, Mapped, Session, sessionmaker, Query
 from sqlalchemy.ext.associationproxy import association_proxy, AssociationProxy
 
-from discord_key_bot.common.util import get_search_name
+from discord_key_bot.common.util import get_search_name, get_eod
 from discord_key_bot.db import sqlalchemy_helpers, db_schema
 from .db_schema import Base
 from .. import platform
@@ -85,8 +85,7 @@ def _upgrade_keys(session: Session) -> None:
         )
         keys: typing.Sequence[Key] = session.scalars(statement).all()
         for k in keys:
-            k.expiration = k.expiration.replace(
-                hour=23, minute=59, second=59, tzinfo=plat.expiration_tz).astimezone(datetime.UTC)
+            k.expiration = get_eod(k.expiration, plat.expiration_tz)
 
         session.flush()
         session.commit()
@@ -121,7 +120,7 @@ class Member(Base):
 
     @staticmethod
     def get(session: Session, member_id: int, name: str):
-        member = session.query(Member).filter(Member.id == member_id).first()
+        member: Member = session.query(Member).filter(Member.id == member_id).first()
 
         if not member:
             member = Member(id=member_id, name=name, is_admin=False)

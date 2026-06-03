@@ -105,6 +105,14 @@ def pretty_timedelta(delta: datetime.timedelta) -> str:
         return f'{seconds} seconds'
 
 
-def parse_expiration(expiration: str, time_zone: ZoneInfo) -> datetime.datetime:
-    return datetime.datetime.strptime(expiration, "%b %d %Y").replace(
-        hour=23, minute=59, second=59, microsecond=999999, tzinfo=time_zone).astimezone(datetime.UTC)
+def parse_expiration(expiration: str) -> datetime.datetime:
+    return datetime.datetime.strptime(expiration, "%b %d %Y").astimezone(datetime.UTC)
+
+
+def get_eod(expiration: datetime.datetime, time_zone: ZoneInfo) -> datetime.datetime:
+    return expiration.replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=time_zone).astimezone(
+       datetime.UTC)
+
+
+def get_expiration_eod(expiration: str, time_zone: ZoneInfo) -> datetime.datetime:
+    return get_eod(parse_expiration(expiration), time_zone)
