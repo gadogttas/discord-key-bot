@@ -247,7 +247,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 await send_message(
                     ctx=ctx,
                     msg=util.embed(
-                        f"Thanks {ctx.author.name}! Your keys are now available on {ctx.guild.name}. " +
+                        f"Thanks {ctx.author.display_name}! Your keys are now available on {ctx.guild.name}. " +
                         f" There are now {game_count} games available.",
                         colour=Colours.GREEN,
                     )
@@ -274,7 +274,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 await send_message(
                     ctx=ctx,
                     msg=util.embed(
-                        f"Thanks {ctx.author.name}! You have removed {ctx.guild.name} from sharing. " +
+                        f"Thanks {ctx.author.display_name}! You have removed {ctx.guild.name} from sharing. " +
                         f"There are now {game_count} games available.",
                         colour=Colours.GREEN,
                     ),
