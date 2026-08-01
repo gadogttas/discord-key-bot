@@ -351,7 +351,6 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
 
             if key.creator_id != member.id and not is_waiver_claim:
                 member.last_claim = datetime.datetime.now(datetime.UTC)
-            session.commit()
 
             claim_msg: Embed = util.embed(
                 f"Please find your key below", title="Game claimed!", colour=Colours.GREEN
@@ -379,6 +378,8 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 ctx=ctx,
                 msg=channel_msg,
             )
+
+            session.commit()
 
     @commands.command()
     async def imfeelinglucky(
