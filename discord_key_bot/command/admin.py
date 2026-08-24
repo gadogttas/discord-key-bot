@@ -496,14 +496,9 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
             )
 
     async def _get_user(self, ctx: commands.Context, user_str: str) -> Optional[discord.User]:
-        match: re.Match = self._member_patt.match(user_str)
-        if not match:
-            await ctx.author.send(embed=embed("Invalid member", colour=Colours.RED))
-            return None
-
         user_id: int
         try:
-            user_id = int(match.group(1))
+            user_id = int(user_str)
         except ValueError:
             await ctx.author.send(embed=embed("Invalid member ID", colour=Colours.RED))
             return None
