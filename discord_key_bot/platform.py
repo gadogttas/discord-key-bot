@@ -7,13 +7,15 @@ class Platform(object):
     """Class representing a platform"""
 
     def __init__(
-        self, name: str, key_regexes: List[str], example_keys: List[str], expiration_tz: Optional[ZoneInfo] = None
+        self, name: str, key_regexes: List[str], example_keys: List[str], expiration_tz: Optional[ZoneInfo] = None,
+            show_expire_message: bool = False
     ) -> None:
         self.name: str = name
         self.search_name: str = name.lower()
         self._patterns: List[re.Pattern] = self._compile_patterns(key_regexes)
         self.example_keys: List[str] = example_keys
         self.expiration_tz: ZoneInfo = expiration_tz or ZoneInfo("Etc/UTC")
+        self.show_expire_message = show_expire_message
 
     def __str__(self) -> str:
         return self.name
@@ -34,6 +36,7 @@ gog: Platform = Platform(
     ],
     example_keys=["AAAAA-BBBBB-CCCCC-DDDDD", "ABCDEABCDEABCDEABC (18 chars)"],
     expiration_tz=ZoneInfo("Europe/Sofia"),  # random zone that's UTC +3 to +2
+    show_expire_message=True
 )
 
 steam: Platform = Platform(

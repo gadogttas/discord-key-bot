@@ -97,9 +97,15 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
 
             session.commit()
 
+            message = f'Key for "{game.pretty_name}" added. Thanks, {ctx.author.name}!'
+
+            if platform.show_expire_message:
+                message += (f"\n\nNOTE: {platform.name} keys frequently have expiration dates; don't forget use "
+                            f"`{self.bot.command_prefix}expiration` to add one if this key expires!")
+
             await ctx.author.send(
                 embed=util.embed(
-                    f'Key for "{game.pretty_name}" added. Thanks {ctx.author.name}!',
+                    message,
                     Colours.GREEN,
                     title=f"{platform.name} Key Added",
                 )
