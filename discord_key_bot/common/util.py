@@ -116,3 +116,9 @@ def get_eod(expiration: datetime.datetime, time_zone: ZoneInfo) -> datetime.date
 
 def get_expiration_eod(expiration: str, time_zone: ZoneInfo) -> datetime.datetime:
     return get_eod(parse_expiration(expiration), time_zone)
+
+
+def is_date_in_waiver_period(expiration: datetime.datetime, expiration_waiver_period: datetime.timedelta) -> bool:
+    expiration_delta: datetime.timedelta = (expiration.replace(tzinfo=datetime.UTC) -
+                                            datetime.datetime.now(datetime.UTC))
+    return expiration_delta <= expiration_waiver_period

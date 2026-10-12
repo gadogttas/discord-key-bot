@@ -7,6 +7,7 @@ from sqlalchemy import text, or_, and_, func, exists
 from sqlalchemy.ext.baked import Result
 from sqlalchemy.orm import Session, Query, aliased
 
+from discord_key_bot.common import util
 from discord_key_bot.common.defaults import PAGE_SIZE
 from discord_key_bot.common.util import (
     GameKeyCount,
@@ -110,6 +111,7 @@ def get_paginated_games(
     per_page: int = PAGE_SIZE,
     sort: SortOrder = SortOrder.TITLE,
     expiring_only: bool = False,
+    expiration_waiver_period: datetime.timedelta = None
 ) -> List[GameKeyCount]:
     # TODO: make a less hacky query building solution
     query: str = paginated_queries[sort]
@@ -132,7 +134,7 @@ def get_paginated_games(
     # group platform key counts by game
     game_count_dict: typing.DefaultDict[str, List[KeyCount]] = collections.defaultdict(list)
     for game_name, platform_name, expiration, key_count in results:
-        label: str = _get_key_count_label(platform_name, expiration)
+        label: str = _get_key_count_label(platform_name, expiration, expiration_waiver_period)
         game_count_dict[game_name].append(KeyCount(label, key_count))
 
     # turn the dict into something easier to work with
@@ -182,11 +184,21 @@ def _platform_search_str(platform: Platform) -> str:
     return platform.search_name if platform else ''
 
 
-def _get_key_count_label(platform_name: str, expiration: str) -> str:
+def _get_key_count_label(platform_name: str, expiration: str, expiration_waiver_period: datetime.timedelta) -> str:
     if expiration:
-        # for whatever reason SQLAlchemy doesn't preserve the Datetime type on custom queries
-        expiration_dt: datetime.datetime = datetime.datetime.strptime(expiration, "%Y-%m-%d %H:%M:%S.%f")
-        expiration_str: str = datetime.datetime.strftime(expiration_dt, "%b %d %Y")
-        return f"{get_platform(platform_name).name} ({expiration_str})"
+        return _format_expiring_key(platform_name, expiration, expiration_waiver_period)
     else:
         return get_platform(platform_name).name
+
+
+def _format_expiring_key(platform_name: str, expiration: str, expiration_waiver_period: datetime.timedelta) -> str:
+    # for whatever reason SQLAlchemy doesn't preserve the Datetime type on custom queries
+    expiration_dt: datetime.datetime = datetime.datetime.strptime(expiration, "%Y-%m-%d %H:%M:%S.%f")
+    expiration_str: str = datetime.datetime.strftime(expiration_dt, "%b %d %Y")
+
+    if util.is_date_in_waiver_period(expiration_dt, expiration_waiver_period):
+        expiration_suffix: str = " _FREE_"
+    else:
+        expiration_suffix = ""
+
+    return f"{get_platform(platform_name).name} ({expiration_str}{expiration_suffix})"

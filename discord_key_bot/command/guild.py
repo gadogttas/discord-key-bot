@@ -182,7 +182,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             default=1,
         ),
     ) -> None:
-        """Browse through available games by date added in descending order"""
+        """Browse through available games by date added"""
 
         with self.db_sessionmaker() as session:
             games: List[GameKeyCount] = search.get_paginated_games(
@@ -443,7 +443,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             default=1,
         ),
     ) -> None:
-        """Keys expiring soon"""
+        """Keys expiring soon. Keys marked as FREE don't affect cooldown."""
 
         count: int
 
@@ -455,6 +455,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 page=page,
                 sort=SortOrder.EXPIRATION,
                 expiring_only=True,
+                expiration_waiver_period=self.expiration_waiver_period,
             )
 
             total: int = search.count_games(
@@ -517,8 +518,6 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
 
     def _is_in_waiver_period(self, key: Key) -> bool:
         if key.expiration:
-            expiration_delta: datetime.timedelta = (key.expiration.replace(tzinfo=datetime.UTC) -
-                                                    datetime.datetime.now(datetime.UTC))
-            return expiration_delta <= self.expiration_waiver_period
+            return util.is_date_in_waiver_period(key.expiration, self.expiration_waiver_period)
 
         return False
