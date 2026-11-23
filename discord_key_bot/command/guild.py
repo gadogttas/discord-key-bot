@@ -466,8 +466,10 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
                 await send_message(ctx=ctx, msg=util.embed("No keys found"))
                 return
 
-            msg: Embed = util.embed(title="Expiring Keys",
-                                    text=get_page_header_text(page, total, self.page_size, "keys"))
+            header_text: str = get_page_header_text(page, total, self.page_size, "keys") + \
+                ". Keys marked as FREE do not affect your cooldown."
+
+            msg: Embed = util.embed(title="Expiring Keys", text=header_text)
 
             for game in games:
                 msg.add_field(name=game.name, value=game.platforms_string())
