@@ -47,7 +47,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     ) -> None:
         """Search available games"""
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 title=game_name,
@@ -112,7 +112,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             )
             return
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 platform=platform,
@@ -151,7 +151,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     ) -> None:
         """Browse through available games"""
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,
@@ -184,7 +184,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     ) -> None:
         """Browse through available games by date added"""
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,
@@ -207,7 +207,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     async def random(self, ctx: commands.Context) -> None:
         """Display random available games"""
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,
@@ -231,7 +231,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     async def share(self, ctx: commands.Context) -> None:
         """Share your keys with this guild"""
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             member: Member = Member.get(session, ctx.author.id, ctx.author.name)
             if ctx.guild.id in member.guilds:
                 await send_message(
@@ -256,7 +256,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     @commands.command()
     async def unshare(self, ctx: commands.Context) -> None:
         """Remove this guild from the guilds you share keys with"""
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
             if ctx.guild.id not in member.guilds:
@@ -299,7 +299,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
         ),
     ) -> None:
         """Claims a game from available keys"""
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
             try:
@@ -407,7 +407,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
             )
             return
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,
@@ -447,7 +447,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
 
         count: int
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,
@@ -483,7 +483,7 @@ class GuildCommands(commands.Cog, name='Channel Commands'):
     ) -> None:
         """Export key counts"""
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             games: List[GameKeyCount] = search.get_paginated_games(
                 session=session,
                 guild_id=ctx.guild.id,

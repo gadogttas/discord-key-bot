@@ -47,7 +47,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         if not user:
             return
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
 
             if not await is_owner(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized owner")
@@ -82,7 +82,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         if not user:
             return
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             member = Member.get(session, user.id, user.name)
             member.is_owner = True
 
@@ -111,7 +111,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         if not user:
             return
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             if not await is_owner(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized owner")
                 return
@@ -145,7 +145,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         if not user:
             return
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
 
             member = Member.get(session, user.id, user.name)
             member.is_owner = False
@@ -161,7 +161,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
         self.logger.info(f"received lsadmin request from user {ctx.author.display_name}")
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             if not await is_owner(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized owner")
                 return
@@ -191,7 +191,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
         self.logger.info(f"received lsowner request from user {ctx.author.display_name}")
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             owners: Sequence[Member] = search.get_owner_members(session)
 
         if not owners:
@@ -226,7 +226,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
         self.logger.info(f"received gameinfo request from user {ctx.author.display_name}")
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             if not await is_admin(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
                 return
@@ -274,7 +274,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         self.logger.info(
             f"received rename request from user {ctx.author.display_name} to rename game_id {game_id} to {new_name}")
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
 
             if not await is_admin(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
@@ -350,7 +350,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
         self.logger.info(f"bulk_expire request from user {ctx.author.display_name}: {game_id} - {expiration}")      
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             if not await is_admin(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized admin")
                 return
@@ -408,7 +408,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
         game_count: int
         key_count: int
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             if not await is_owner(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized owner")
                 return
@@ -438,7 +438,7 @@ class AdminCommands(commands.Cog, name='Admin Commands', command_attrs=dict(hidd
 
         self.logger.info(f"delete request from user {ctx.author.display_name} for game_id {game_id}")
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             if not await is_owner(session, ctx):
                 self.logger.info(f"{ctx.author.display_name} is not an authorized owner")
                 return

@@ -65,7 +65,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
                 )
             )
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             game: Game = Game.get(session, game_name)
 
             try:
@@ -144,7 +144,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
             )
             return
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             member: Member = Member.get(session, ctx.author.id, ctx.author.name)
 
             game: Game = search.get_game(session=session, game_name=game_name)
@@ -194,7 +194,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
             )
             return
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             member = Member.get(session, ctx.author.id, ctx.author.name)
 
             games: List[GameKeyCount] = search.get_paginated_games(
@@ -247,7 +247,7 @@ class DirectCommands(commands.Cog, name='Direct Message Commands'):
                 )
             )
 
-        with self.db_sessionmaker() as session:
+        with (self.db_sessionmaker() as session):
             key: Key = search.find_key(session=session, key=key)
             plat: Platform = get_platform(key.platform)
 
